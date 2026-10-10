@@ -30,6 +30,8 @@
   @keyframes pop { 0% { transform: scale(1.6); opacity: 1; } 18% { transform: scale(1); opacity: 1; } 55% { opacity: 1; } 100% { opacity: 0; } }
   .presence { position: absolute; bottom: 4vh; width: 50%; text-align: center; font-size: 3.5vh; font-weight: 700; display: none; }
   .presence span { background: rgba(0,0,0,.65); padding: 1vh 2vw; border-radius: 1vh; }
+  #caption { position: absolute; left: 0; right: 0; bottom: 8vh; text-align: center; font-size: 5vh; font-weight: 700;
+             text-shadow: 0 .4vh 1.2vh #000; display: none; }
   #results { position: absolute; inset: 0; background: rgba(0,0,0,.82); display: none; flex-direction: column;
              align-items: center; justify-content: center; gap: 3vh; }
   #results h2 { font-size: 5vh; margin: 0; font-weight: 400; }
@@ -46,6 +48,7 @@
 <div id="idle"><h1>DanceApp</h1><p>Выберите песню на планшете</p></div>
 <div id="scores"></div>
 <div id="results"></div>
+<div id="caption"></div>
 
 <script>
 const NAMESPACE = 'urn:x-cast:com.dezesar.dance';
@@ -142,7 +145,16 @@ function showResults(msg) {
 function clearGame() {
   game = null;
   resetOverlay();
+  caption.style.display = 'none';
   idle.style.display = 'flex';
+}
+
+// Latency calibration: the video is a metronome; the tablet tells players what to do and how it's going
+const caption = document.getElementById('caption');
+function showCaption(text) {
+  idle.style.display = 'none';
+  caption.textContent = text;
+  caption.style.display = 'block';
 }
 
 context.addCustomMessageListener(NAMESPACE, event => {
@@ -156,6 +168,7 @@ context.addCustomMessageListener(NAMESPACE, event => {
     case 'presence': { const p = player(msg.side); if (p) p.presenceEl.style.display = msg.inView ? 'none' : 'block'; break; }
     case 'results': showResults(msg); break;
     case 'clear': clearGame(); break;
+    case 'calibration': showCaption(msg.text); break;
   }
 });
 
@@ -248,6 +261,12 @@ context.addEventListener(cast.framework.system.EventType.SENDER_CONNECTED, () =>
 });
 playerManager.addEventListener(cast.framework.events.EventType.ERROR, e => {
   report({ type: 'error', detailedErrorCode: e.detailedErrorCode, error: String(e.error && (e.error.message || e.error)) });
+});
+
+// Remote control experiment: do D-pad presses reach a Cast receiver on this TV? Shown on screen and reported.
+document.addEventListener('keydown', e => {
+  report({ type: 'key', key: e.key, code: e.code, keyCode: e.keyCode });
+  if (!game) idle.querySelector('p').textContent = 'Кнопка пульта: ' + (e.key || e.keyCode);
 });
 
 // Stay up between songs: the tablet decides when the session ends
