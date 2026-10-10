@@ -116,6 +116,10 @@ function showJudgement(msg) {
 }
 
 function showResults(msg) {
+  // The round is over: only the results stay on screen
+  game = null;
+  document.querySelectorAll('.popup, .presence, .strip').forEach(e => e.remove());
+  scoresEl.style.display = 'none';
   const solo = msg.players.length === 1;
   resultsEl.innerHTML = '<h2></h2><div class="players"></div>';
   resultsEl.querySelector('h2').textContent = msg.title;
