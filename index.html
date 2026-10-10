@@ -12,7 +12,10 @@
 <style>
   html, body { margin: 0; height: 100%; background: #000; overflow: hidden; font-family: Roboto, "Noto Sans", sans-serif; color: #fff; }
   video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #000; }
-  canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .strip { position: absolute; inset: 0; pointer-events: none; }
+  .target { position: absolute; border-style: solid; box-sizing: border-box; }
+  .cue { position: absolute; display: none; background: rgba(0,0,0,.55); }
+  .cue svg { width: 100%; height: 100%; stroke: currentColor; fill: currentColor; stroke-width: 6; stroke-linecap: round; }
   #idle { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2vh; }
   #idle h1 { font-size: 7vh; margin: 0; font-weight: 700; }
   #idle p { font-size: 3vh; margin: 0; opacity: .7; }
@@ -40,7 +43,6 @@
 </head>
 <body>
 <video id="video"></video>
-<canvas id="cues"></canvas>
 <div id="idle"><h1>DanceApp</h1><p>Выберите песню на планшете</p></div>
 <div id="scores"></div>
 <div id="results"></div>
@@ -58,8 +60,6 @@ const playerManager = context.getPlayerManager();
 const video = document.getElementById('video');
 playerManager.setMediaElement(video);
 
-const canvas = document.getElementById('cues');
-const ctx = canvas.getContext('2d');
 const idle = document.getElementById('idle');
 const scoresEl = document.getElementById('scores');
 const resultsEl = document.getElementById('results');
@@ -68,7 +68,7 @@ const resultsEl = document.getElementById('results');
 let game = null; // { aspectRatio, players: [{ side, color, cues: [{t, p}], judged: {t: judgement}, points, el... }] }
 
 function resetOverlay() {
-  document.querySelectorAll('.popup, .presence').forEach(e => e.remove());
+  document.querySelectorAll('.popup, .presence, .strip').forEach(e => e.remove());
   scoresEl.innerHTML = '';
   scoresEl.style.display = 'none';
   resultsEl.style.display = 'none';
@@ -96,6 +96,7 @@ function startLevel(msg) {
       return { ...p, solo, judged: {}, scoreEl: score, popupEl: popup, presenceEl: presence };
     }),
   };
+  game.players.forEach(p => buildCues(p, msg.aspectRatio));
   scoresEl.style.display = 'flex';
   idle.style.display = 'none';
 }
@@ -154,35 +155,48 @@ context.addCustomMessageListener(NAMESPACE, event => {
   }
 });
 
-// Cue strips, redrawn every frame from the video's own clock
-function drawFigure(points, x, y, box, color, aspect) {
+// Cue strips. Plain elements, not a canvas: on Android TV Cast devices the video plane covers canvases.
+// Each cue is built once as an SVG figure; every frame only moves it, timed off the video's own clock.
+const SVG = 'http://www.w3.org/2000/svg';
+
+function figureSvg(points, aspect) {
   const xs = points.map(p => p[0] * aspect), ys = points.map(p => p[1]);
   const extent = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys), 1e-3);
-  const margin = box * 0.12, scale = (box - 2 * margin) / extent;
+  const scale = 76 / extent; // 12 % margin on each side of a 100-unit box
   const cx = (Math.max(...xs) + Math.min(...xs)) / 2, cy = (Math.max(...ys) + Math.min(...ys)) / 2;
-  const at = i => [x + box / 2 + (xs[i] - cx) * scale, y + box / 2 + (ys[i] - cy) * scale];
-  ctx.strokeStyle = ctx.fillStyle = color;
-  ctx.lineWidth = box * 0.06;
-  ctx.lineCap = 'round';
+  const at = i => [50 + (xs[i] - cx) * scale, 50 + (ys[i] - cy) * scale];
+  const svg = document.createElementNS(SVG, 'svg');
+  svg.setAttribute('viewBox', '0 0 100 100');
   for (const [a, b] of BONES) {
+    const line = document.createElementNS(SVG, 'line');
     const [ax, ay] = at(a), [bx, by] = at(b);
-    ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke();
+    line.setAttribute('x1', ax); line.setAttribute('y1', ay); line.setAttribute('x2', bx); line.setAttribute('y2', by);
+    svg.appendChild(line);
   }
-  const [lx, ly] = at(1), [rx, ry] = at(2);
-  const r = Math.min(Math.max(Math.hypot(lx - rx, ly - ry) * 0.35, box * 0.05), box * 0.1);
-  const [nx, ny] = at(0);
-  ctx.beginPath(); ctx.arc(nx, ny, r, 0, 2 * Math.PI); ctx.fill();
+  const [lx, ly] = at(1), [rx, ry] = at(2), [nx, ny] = at(0);
+  const head = document.createElementNS(SVG, 'circle');
+  head.setAttribute('cx', nx); head.setAttribute('cy', ny);
+  head.setAttribute('r', Math.min(Math.max(Math.hypot(lx - rx, ly - ry) * 0.35, 5), 10));
+  svg.appendChild(head);
+  return svg;
 }
 
-// By hand: older Cast devices run a Chromium without ctx.roundRect
-function roundRect(x, y, w, h, r) {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.arcTo(x + w, y, x + w, y + h, r);
-  ctx.arcTo(x + w, y + h, x, y + h, r);
-  ctx.arcTo(x, y + h, x, y, r);
-  ctx.arcTo(x, y, x + w, y, r);
-  ctx.closePath();
+function buildCues(p, aspect) {
+  const strip = document.createElement('div');
+  strip.className = 'strip';
+  const target = document.createElement('div');
+  target.className = 'target';
+  target.style.borderColor = p.solo ? 'rgba(255,255,255,.9)' : p.color;
+  strip.appendChild(target);
+  for (const c of p.cues) {
+    c.el = document.createElement('div');
+    c.el.className = 'cue';
+    c.el.appendChild(figureSvg(c.p, aspect));
+    strip.appendChild(c.el);
+  }
+  document.body.appendChild(strip);
+  p.stripEl = strip;
+  p.targetEl = target;
 }
 
 let reportedDraw = false;
@@ -192,39 +206,30 @@ function frame() {
 }
 
 function draw() {
-  const dpr = window.devicePixelRatio || 1;
-  if (canvas.width !== innerWidth * dpr || canvas.height !== innerHeight * dpr) {
-    canvas.width = innerWidth * dpr; canvas.height = innerHeight * dpr;
-  }
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  ctx.clearRect(0, 0, innerWidth, innerHeight);
-  if (game) {
-    const now = video.currentTime * 1000;
-    const cue = innerHeight * 0.17;
-    const stripTop = innerHeight * 0.075, stripHeight = innerHeight * 0.85;
-    const targetTop = stripTop + cue * 0.25;
-    const pxPerMs = (stripTop + stripHeight - targetTop) / LEAD_MS;
-    for (const p of game.players) {
-      const left = p.solo || p.side === 'LEFT' ? innerWidth * 0.02 : innerWidth * 0.98 - cue;
-      ctx.lineWidth = cue * 0.03;
-      ctx.strokeStyle = p.solo ? 'rgba(255,255,255,.9)' : p.color;
-      roundRect(left, targetTop, cue, cue, cue * 0.12); ctx.stroke();
-      for (const c of p.cues) {
-        const dt = c.t - now;
-        if (dt > LEAD_MS || dt < -LINGER_MS) continue;
-        if (!reportedDraw) {
-          reportedDraw = true;
-          report({ type: 'drawn', now: Math.round(now), cueAt: c.t, canvas: canvas.width + 'x' + canvas.height });
-        }
-        const top = targetTop + dt * pxPerMs;
-        const fade = dt < 0 ? 1 + dt / LINGER_MS : 1;
-        ctx.globalAlpha = fade;
-        ctx.fillStyle = 'rgba(0,0,0,.55)';
-        roundRect(left, top, cue, cue, cue * 0.12); ctx.fill();
-        const judged = p.judged[c.t];
-        drawFigure(c.p, left, top, cue, judged ? COLORS[judged] : '#fff', game.aspectRatio);
-        ctx.globalAlpha = 1;
+  if (!game) return;
+  const now = video.currentTime * 1000;
+  const cue = innerHeight * 0.17;
+  const stripTop = innerHeight * 0.075, stripHeight = innerHeight * 0.85;
+  const targetTop = stripTop + cue * 0.25;
+  const pxPerMs = (stripTop + stripHeight - targetTop) / LEAD_MS;
+  for (const p of game.players) {
+    const left = p.solo || p.side === 'LEFT' ? innerWidth * 0.02 : innerWidth * 0.98 - cue;
+    p.targetEl.style.cssText = `left:${left}px;top:${targetTop}px;width:${cue}px;height:${cue}px;border-width:${cue * 0.03}px;` +
+      `border-color:${p.solo ? 'rgba(255,255,255,.9)' : p.color};border-radius:${cue * 0.12}px`;
+    for (const c of p.cues) {
+      const dt = c.t - now;
+      if (dt > LEAD_MS || dt < -LINGER_MS) {
+        if (c.shown) { c.el.style.display = 'none'; c.shown = false; }
+        continue;
       }
+      if (!reportedDraw) {
+        reportedDraw = true;
+        report({ type: 'drawn', now: Math.round(now), cueAt: c.t });
+      }
+      const judged = p.judged[c.t];
+      c.el.style.cssText = `display:block;left:${left}px;top:${targetTop + dt * pxPerMs}px;width:${cue}px;height:${cue}px;` +
+        `border-radius:${cue * 0.12}px;opacity:${dt < 0 ? 1 + dt / LINGER_MS : 1};color:${judged ? COLORS[judged] : '#fff'}`;
+      c.shown = true;
     }
   }
 }
