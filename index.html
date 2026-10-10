@@ -55,14 +55,17 @@
   .scorecard .points { font-size: 6.5vh; font-weight: 900; color: #fff; line-height: 1.05; }
   .scorecard .combo { font-size: 2.4vh; font-weight: 700; letter-spacing: .3vh; opacity: 0; transition: opacity .2s; }
   .scorecard .combo.on { opacity: 1; }
+  .scorecard .points { will-change: transform; }
   .scorecard.bump .points { animation: bump .35s ease-out; }
   @keyframes bump { 30% { transform: scale(1.18); } }
 
   .strip { position: absolute; inset: 0; pointer-events: none; }
   .target { position: absolute; border-style: solid; box-sizing: border-box; }
-  .target.flash { animation: flash .5s ease-out; }
-  @keyframes flash { 0% { box-shadow: 0 0 5vh 1.5vh var(--flash), inset 0 0 4vh var(--flash); } }
-  .cue { position: absolute; display: none; background: rgba(5,4,15,.6); }
+  .target::after { content: ''; position: absolute; inset: -.5vh; border-radius: inherit; opacity: 0; will-change: opacity;
+                   box-shadow: 0 0 5vh 1.5vh var(--flash), inset 0 0 4vh var(--flash); }
+  .target.flash::after { animation: flash .5s ease-out; }
+  @keyframes flash { 0% { opacity: 1; } 100% { opacity: 0; } }
+  .cue { position: absolute; display: none; background: rgba(5,4,15,.6); will-change: transform, opacity; }
   .cue svg { width: 100%; height: 100%; stroke: currentColor; fill: currentColor; stroke-width: 6; stroke-linecap: round; }
 
   .popup { position: absolute; top: 24vh; width: 50%; text-align: center; font-size: 9.5vh; font-weight: 900; opacity: 0;
@@ -72,6 +75,7 @@
   .popup.left { left: 6%; width: 44%; }
   .popup.right { left: 50%; width: 44%; }
   .popup span { display: inline-block; color: var(--c); text-shadow: 0 0 2vh var(--c), 0 .6vh 1.5vh #000; }
+  .popup { will-change: transform, opacity; }
   .popup.show { animation: pop 1.2s cubic-bezier(.2, 1.4, .4, 1) forwards; }
   .popup.show.miss { animation: popmiss 1s ease-out forwards; }
   @keyframes pop { 0% { transform: scale(.3) rotate(-8deg); opacity: 0; } 15% { transform: scale(1.15) rotate(2deg); opacity: 1; }
@@ -80,18 +84,21 @@
                        30% { transform: translateX(-1vh); } 40% { transform: translateX(0); } 70% { opacity: .9; } 100% { opacity: 0; transform: translateY(3vh); } }
   .spark { position: absolute; width: 4vh; height: 4vh; margin: -2vh 0 0 -2vh; pointer-events: none; font-size: 4.2vh;
            line-height: 4vh; text-align: center; color: var(--c); text-shadow: 0 0 1.2vh var(--c), 0 0 .3vh #000;
-           animation: spark .8s cubic-bezier(.1, .7, .3, 1) forwards; }
+           animation: spark .8s cubic-bezier(.1, .7, .3, 1) forwards; will-change: transform, opacity; }
   @keyframes spark { 0% { transform: translate(0, 0) scale(1.6); opacity: 1; } 65% { opacity: 1; }
                      100% { transform: translate(var(--dx), var(--dy)) rotate(var(--r)) scale(.6); opacity: 0; } }
 
   #comboflash { position: absolute; left: 0; right: 0; top: 40vh; text-align: center; font-size: 13vh; font-weight: 900;
                 pointer-events: none; opacity: 0; }
+  /* Animations here touch only transform and opacity, on their own layers: the SHIELD's browser stutters
+     when big glowing text has to be laid out or repainted every frame */
+  #comboflash { will-change: transform, opacity; }
   #comboflash.show { animation: combo 1.4s ease-out forwards; }
-  @keyframes combo { 0% { transform: scale(2.5); opacity: 0; letter-spacing: 4vh; } 20% { transform: scale(1); opacity: 1; letter-spacing: 0; }
+  @keyframes combo { 0% { transform: scale(2.5); opacity: 0; } 20% { transform: scale(1); opacity: 1; }
                      75% { opacity: 1; } 100% { transform: scale(.9); opacity: 0; } }
   #comboflash span { background: linear-gradient(90deg, var(--gold), var(--pink), var(--cyan)); -webkit-background-clip: text; color: transparent;
                      filter: drop-shadow(0 .4vh .3vh rgba(0, 0, 0, .9)) drop-shadow(0 0 2vh rgba(255, 215, 64, .6)); }
-  #edge { position: absolute; inset: 0; pointer-events: none; opacity: 0; box-shadow: inset 0 0 12vh 3vh var(--c); }
+  #edge { position: absolute; inset: 0; pointer-events: none; opacity: 0; box-shadow: inset 0 0 12vh 3vh var(--c); will-change: opacity; }
   #edge.show { animation: edge 1.2s ease-out; }
   @keyframes edge { 20% { opacity: 1; } 100% { opacity: 0; } }
 
@@ -163,6 +170,8 @@ const LABELS = { PERFECT: 'PERFECT!', GOOD: 'GOOD', OK: 'OK', MISS: 'MISS' };
 const BONES = [[1,2],[7,8],[1,7],[2,8],[1,3],[3,5],[2,4],[4,6],[7,9],[9,11],[8,10],[10,12]];
 // Every this many hits in a row gets a big "COMBO n!"
 const COMBO_MILESTONE = 5;
+// Enough for a burst; each is a layer the TV has to composite
+const SPARKS = 12;
 
 const context = cast.framework.CastReceiverContext.getInstance();
 const playerManager = context.getPlayerManager();
@@ -244,11 +253,11 @@ function player(side) { return game && game.players.find(p => p.side === side); 
 function burst(p, color) {
   const rect = p.popupEl.getBoundingClientRect();
   const cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
-  for (let i = 0; i < 18; i++) {
+  for (let i = 0; i < SPARKS; i++) {
     const spark = document.createElement('div');
     spark.className = 'spark';
     spark.textContent = i % 3 ? '✦' : '★';
-    const angle = (i / 18) * 2 * Math.PI + Math.random() * .3;
+    const angle = (i / SPARKS) * 2 * Math.PI + Math.random() * .3;
     const dist = innerHeight * (.14 + Math.random() * .12);
     spark.style.cssText = `left:${cx}px;top:${cy}px;--c:${color};--dx:${Math.cos(angle) * dist}px;--dy:${Math.sin(angle) * dist}px;` +
       `--r:${Math.round(Math.random() * 360)}deg`;
@@ -493,6 +502,11 @@ function draw() {
         if (c.shown) { c.el.style.display = 'none'; c.shown = false; }
         continue;
       }
+      // Size and place once (and on resize); per frame only transform, opacity and color change
+      if (c.box !== box) {
+        c.box = box;
+        c.el.style.cssText = box + `top:${targetTop}px;`;
+      }
       if (!reportedDraw) {
         reportedDraw = true;
         report({ type: 'drawn', now: Math.round(now), cueAt: c.t });
@@ -500,9 +514,12 @@ function draw() {
       const judged = p.judged[c.t];
       // Cues grow a little as they near the target, as if coming at the player
       const grow = dt > 0 ? 0.85 + 0.15 * (1 - dt / LEAD_MS) : 1;
-      c.el.style.cssText = box + `display:block;top:${targetTop + dt * pxPerMs}px;transform:scale(${grow});` +
-        `opacity:${dt < 0 ? 1 + dt / LINGER_MS : 1};color:${judged ? COLORS[judged] : '#fff'}`;
-      c.shown = true;
+      const style = c.el.style;
+      if (!c.shown) { style.display = 'block'; c.shown = true; }
+      style.transform = `translate3d(0, ${(dt * pxPerMs).toFixed(1)}px, 0) scale(${grow.toFixed(3)})`;
+      style.opacity = dt < 0 ? 1 + dt / LINGER_MS : 1;
+      const color = judged ? COLORS[judged] : '#fff';
+      if (c.color !== color) { style.color = color; c.color = color; }
     }
   }
 }
