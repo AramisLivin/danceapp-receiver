@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>DanceApp</title>
+<!--
+  Cast Web Receiver for DanceApp: plays the level video and draws the game on top of it.
+  The tablet sends what to draw over the custom namespace below; everything time-based here
+  (cues sliding to their target) runs off this device's own playback clock, so it stays in sync with the picture.
+-->
+<script src="https://www.gstatic.com/cast/sdk/libs/caf_receiver/v3/cast_receiver_framework.js"></script>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; font-family: Roboto, "Noto Sans", sans-serif; color: #fff; }
+  video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #000; }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #idle { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2vh; }
+  #idle h1 { font-size: 7vh; margin: 0; font-weight: 700; }
+  #idle p { font-size: 3vh; margin: 0; opacity: .7; }
+  #scores { position: absolute; top: 2vh; left: 50%; transform: translateX(-50%); display: none; gap: 4vw;
+            background: rgba(0,0,0,.55); border-radius: 1.5vh; padding: 1vh 2.5vw; font-size: 6vh; font-weight: 700; }
+  .popup { position: absolute; top: 20vh; width: 50%; text-align: center; font-size: 10vh; font-weight: 900;
+           text-shadow: 0 .5vh 1.5vh #000; opacity: 0; }
+  .popup.solo { left: 25%; }
+  .popup.left { left: 0; }
+  .popup.right { left: 50%; }
+  .popup.show { animation: pop 1.1s ease-out forwards; }
+  @keyframes pop { 0% { transform: scale(1.6); opacity: 1; } 18% { transform: scale(1); opacity: 1; } 55% { opacity: 1; } 100% { opacity: 0; } }
+  .presence { position: absolute; bottom: 4vh; width: 50%; text-align: center; font-size: 3.5vh; font-weight: 700; display: none; }
+  .presence span { background: rgba(0,0,0,.65); padding: 1vh 2vw; border-radius: 1vh; }
+  #results { position: absolute; inset: 0; background: rgba(0,0,0,.82); display: none; flex-direction: column;
+             align-items: center; justify-content: center; gap: 3vh; }
+  #results h2 { font-size: 5vh; margin: 0; font-weight: 400; }
+  #results .players { display: flex; gap: 10vw; }
+  #results .player { display: flex; flex-direction: column; align-items: center; gap: 1.5vh; }
+  #results .who { font-size: 3.5vh; }
+  #results .stars { font-size: 9vh; color: #FFD740; }
+  #results .points { font-size: 7vh; font-weight: 700; }
+  #results .counts, #results .hint { font-size: 3vh; opacity: .85; }
+</style>
+</head>
+<body>
+<video id="video"></video>
+<canvas id="cues"></canvas>
+<div id="idle"><h1>DanceApp</h1><p>Выберите песню на планшете</p></div>
+<div id="scores"></div>
+<div id="results"></div>
+
+<script>
+const NAMESPACE = 'urn:x-cast:com.dezesar.dance';
+const LEAD_MS = 3000, LINGER_MS = 600;
+const COLORS = { PERFECT: '#76FF03', GOOD: '#00E5FF', OK: '#FFD740', MISS: '#FF5252' };
+// Cue figures come as 13 points: nose, shoulders, elbows, wrists, hips, knees, ankles (left before right)
+const BONES = [[1,2],[7,8],[1,7],[2,8],[1,3],[3,5],[2,4],[4,6],[7,9],[9,11],[8,10],[10,12]];
+
+const context = cast.framework.CastReceiverContext.getInstance();
+const playerManager = context.getPlayerManager();
+const video = document.getElementById('video');
+playerManager.setMediaElement(video);
+
+const canvas = document.getElementById('cues');
+const ctx = canvas.getContext('2d');
+const idle = document.getElementById('idle');
+const scoresEl = document.getElementById('scores');
+const resultsEl = document.getElementById('results');
+
+// Game state, replaced by each "level" message
+let game = null; // { aspectRatio, players: [{ side, color, cues: [{t, p}], judged: {t: judgement}, points, el... }] }
+
+function resetOverlay() {
+  document.querySelectorAll('.popup, .presence').forEach(e => e.remove());
+  scoresEl.innerHTML = '';
+  scoresEl.style.display = 'none';
+  resultsEl.style.display = 'none';
+}
+
+function startLevel(msg) {
+  resetOverlay();
+  const solo = msg.players.length === 1;
+  game = {
+    aspectRatio: msg.aspectRatio,
+    players: msg.players.map(p => {
+      const key = solo ? 'solo' : p.side.toLowerCase();
+      const score = document.createElement('span');
+      score.style.color = solo ? '#fff' : p.color;
+      score.textContent = '0';
+      scoresEl.appendChild(score);
+      const popup = document.createElement('div');
+      popup.className = 'popup ' + key;
+      document.body.appendChild(popup);
+      const presence = document.createElement('div');
+      presence.className = 'presence';
+      presence.style.left = solo ? '25%' : (p.side === 'LEFT' ? '0' : '50%');
+      presence.innerHTML = '<span>' + (solo ? 'Встаньте в кадр' : p.label + ': встаньте в кадр') + '</span>';
+      document.body.appendChild(presence);
+      return { ...p, solo, judged: {}, scoreEl: score, popupEl: popup, presenceEl: presence };
+    }),
+  };
+  scoresEl.style.display = 'flex';
+  idle.style.display = 'none';
+}
+
+function player(side) { return game && game.players.find(p => p.side === side); }
+
+function showJudgement(msg) {
+  const p = player(msg.side);
+  if (!p) return;
+  p.judged[msg.t] = msg.judgement;
+  p.scoreEl.textContent = msg.points;
+  p.popupEl.textContent = msg.judgement === 'PERFECT' ? 'PERFECT!' : msg.judgement;
+  p.popupEl.style.color = COLORS[msg.judgement];
+  p.popupEl.classList.remove('show');
+  void p.popupEl.offsetWidth; // restart the animation
+  p.popupEl.classList.add('show');
+}
+
+function showResults(msg) {
+  const solo = msg.players.length === 1;
+  resultsEl.innerHTML = '<h2></h2><div class="players"></div>';
+  resultsEl.querySelector('h2').textContent = msg.title;
+  const row = resultsEl.querySelector('.players');
+  for (const r of msg.players) {
+    const el = document.createElement('div');
+    el.className = 'player';
+    el.innerHTML = (solo ? '' : '<div class="who"></div>') +
+      '<div class="stars"></div><div class="points"></div><div class="counts"></div><div class="hint"></div>';
+    if (!solo) { el.querySelector('.who').textContent = r.label; el.querySelector('.who').style.color = r.color; }
+    el.querySelector('.stars').textContent = '★'.repeat(r.stars) + '☆'.repeat(5 - r.stars);
+    el.querySelector('.points').textContent = r.points + ' / ' + r.maxPoints;
+    el.querySelector('.counts').textContent = r.counts;
+    el.querySelector('.hint').textContent = r.hint || '';
+    row.appendChild(el);
+  }
+  resultsEl.style.display = 'flex';
+}
+
+function clearGame() {
+  game = null;
+  resetOverlay();
+  idle.style.display = 'flex';
+}
+
+context.addCustomMessageListener(NAMESPACE, event => {
+  const msg = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+  switch (msg.type) {
+    case 'level': startLevel(msg); break;
+    case 'judgement': showJudgement(msg); break;
+    case 'presence': { const p = player(msg.side); if (p) p.presenceEl.style.display = msg.inView ? 'none' : 'block'; break; }
+    case 'results': showResults(msg); break;
+    case 'clear': clearGame(); break;
+  }
+});
+
+// Cue strips, redrawn every frame from the video's own clock
+function drawFigure(points, x, y, box, color, aspect) {
+  const xs = points.map(p => p[0] * aspect), ys = points.map(p => p[1]);
+  const extent = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys), 1e-3);
+  const margin = box * 0.12, scale = (box - 2 * margin) / extent;
+  const cx = (Math.max(...xs) + Math.min(...xs)) / 2, cy = (Math.max(...ys) + Math.min(...ys)) / 2;
+  const at = i => [x + box / 2 + (xs[i] - cx) * scale, y + box / 2 + (ys[i] - cy) * scale];
+  ctx.strokeStyle = ctx.fillStyle = color;
+  ctx.lineWidth = box * 0.06;
+  ctx.lineCap = 'round';
+  for (const [a, b] of BONES) {
+    const [ax, ay] = at(a), [bx, by] = at(b);
+    ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke();
+  }
+  const [lx, ly] = at(1), [rx, ry] = at(2);
+  const r = Math.min(Math.max(Math.hypot(lx - rx, ly - ry) * 0.35, box * 0.05), box * 0.1);
+  const [nx, ny] = at(0);
+  ctx.beginPath(); ctx.arc(nx, ny, r, 0, 2 * Math.PI); ctx.fill();
+}
+
+// By hand: older Cast devices run a Chromium without ctx.roundRect
+function roundRect(x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+function frame() {
+  const dpr = window.devicePixelRatio || 1;
+  if (canvas.width !== innerWidth * dpr || canvas.height !== innerHeight * dpr) {
+    canvas.width = innerWidth * dpr; canvas.height = innerHeight * dpr;
+  }
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, innerWidth, innerHeight);
+  if (game) {
+    const now = video.currentTime * 1000;
+    const cue = innerHeight * 0.17;
+    const stripTop = innerHeight * 0.075, stripHeight = innerHeight * 0.85;
+    const targetTop = stripTop + cue * 0.25;
+    const pxPerMs = (stripTop + stripHeight - targetTop) / LEAD_MS;
+    for (const p of game.players) {
+      const left = p.solo || p.side === 'LEFT' ? innerWidth * 0.02 : innerWidth * 0.98 - cue;
+      ctx.lineWidth = cue * 0.03;
+      ctx.strokeStyle = p.solo ? 'rgba(255,255,255,.9)' : p.color;
+      roundRect(left, targetTop, cue, cue, cue * 0.12); ctx.stroke();
+      for (const c of p.cues) {
+        const dt = c.t - now;
+        if (dt > LEAD_MS || dt < -LINGER_MS) continue;
+        const top = targetTop + dt * pxPerMs;
+        const fade = dt < 0 ? 1 + dt / LINGER_MS : 1;
+        ctx.globalAlpha = fade;
+        ctx.fillStyle = 'rgba(0,0,0,.55)';
+        roundRect(left, top, cue, cue, cue * 0.12); ctx.fill();
+        const judged = p.judged[c.t];
+        drawFigure(c.p, left, top, cue, judged ? COLORS[judged] : '#fff', game.aspectRatio);
+        ctx.globalAlpha = 1;
+      }
+    }
+  }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+// Stay up between songs: the tablet decides when the session ends
+const options = new cast.framework.CastReceiverOptions();
+options.disableIdleTimeout = true;
+options.customNamespaces = { [NAMESPACE]: cast.framework.system.MessageType.JSON };
+context.start(options);
+</script>
+</body>
+</html>
