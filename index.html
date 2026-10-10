@@ -50,8 +50,20 @@
   #progress { position: absolute; left: 0; top: 0; height: .9vh; width: 100%; background: rgba(255,255,255,.12); display: none; }
   #progress div { height: 100%; width: 0; background: linear-gradient(90deg, var(--cyan), var(--pink)); box-shadow: 0 0 1.5vh var(--pink); }
   #scores { position: absolute; top: 2.5vh; left: 50%; transform: translateX(-50%); display: none; gap: 2.5vw; }
-  .scorecard { display: flex; flex-direction: column; align-items: center; min-width: 16vw; padding: 1vh 2vw 1.2vh;
+  .scorecard { position: relative; display: flex; flex-direction: column; align-items: center; min-width: 16vw; padding: 1vh 2vw 1.2vh;
                background: rgba(5, 4, 15, .62); border-radius: 2vh; border-top: .6vh solid currentColor; }
+  /* Two players: a combo milestone is celebrated on that player's own card, not across the screen */
+  .scorecard::after { content: ''; position: absolute; inset: -.6vh; border-radius: 2.4vh; opacity: 0;
+                      box-shadow: 0 0 4vh 1vh currentColor, inset 0 0 2vh currentColor; }
+  .scorecard.milestone::after { animation: cardglow 1.3s ease-out; }
+  @keyframes cardglow { 12% { opacity: 1; } 100% { opacity: 0; } }
+  .scorecard.milestone .points { animation: bigbump .5s cubic-bezier(.2, 1.6, .4, 1); }
+  @keyframes bigbump { 35% { transform: scale(1.4); } }
+  .scorecard .badge { position: absolute; left: 50%; top: 100%; margin-top: 1.2vh; white-space: nowrap; font-size: 4.4vh; font-weight: 900;
+                      opacity: 0; transform: translateX(-50%); text-shadow: 0 0 1.5vh currentColor, 0 .3vh .6vh #000; }
+  .scorecard.milestone .badge { animation: badge 1.5s cubic-bezier(.2, 1.4, .4, 1) forwards; }
+  @keyframes badge { 0% { transform: translate(-50%, -2vh) scale(.4); opacity: 0; } 15% { transform: translate(-50%, 0) scale(1.15); opacity: 1; }
+                     30% { transform: translate(-50%, 0) scale(1); } 75% { opacity: 1; } 100% { transform: translate(-50%, 1vh); opacity: 0; } }
   .scorecard .points { font-size: 6.5vh; font-weight: 900; color: #fff; line-height: 1.05; }
   .scorecard .combo { font-size: 2.4vh; font-weight: 700; letter-spacing: .3vh; opacity: 0; transition: opacity .2s; }
   .scorecard .combo.on { opacity: 1; }
@@ -223,7 +235,7 @@ function startLevel(msg) {
       const card = document.createElement('div');
       card.className = 'scorecard';
       card.style.color = color;
-      card.innerHTML = '<div class="points">0</div><div class="combo"></div>';
+      card.innerHTML = '<div class="points">0</div><div class="combo"></div><div class="badge"></div>';
       scoresEl.appendChild(card);
       const popup = document.createElement('div');
       popup.className = 'popup ' + (solo ? 'solo' : p.side.toLowerCase());
@@ -289,7 +301,10 @@ function showJudgement(msg) {
   replay(p.targetEl, 'flash');
 
   if (msg.judgement === 'PERFECT') burst(p, color);
-  if (combo > 0 && combo % COMBO_MILESTONE === 0) {
+  if (combo > 0 && combo % COMBO_MILESTONE === 0 && !p.solo) {
+    p.cardEl.querySelector('.badge').textContent = 'COMBO ' + combo + '!';
+    replay(p.cardEl, 'milestone');
+  } else if (combo > 0 && combo % COMBO_MILESTONE === 0) {
     comboFlash.innerHTML = '<span></span>';
     comboFlash.firstChild.textContent = 'COMBO ' + combo + '!';
     replay(comboFlash, 'show');
