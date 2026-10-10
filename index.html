@@ -209,7 +209,8 @@ function startLevel(msg) {
   game = {
     durationMs: msg.durationMs || 0,
     players: msg.players.map(p => {
-      const color = solo ? '#fff' : p.color;
+      // A lone player is gold; two players wear their side's color
+      const color = solo ? '#FFD740' : p.color;
       const card = document.createElement('div');
       card.className = 'scorecard';
       card.style.color = color;
