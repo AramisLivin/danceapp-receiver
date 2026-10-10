@@ -53,6 +53,7 @@ const COLORS = { PERFECT: '#76FF03', GOOD: '#00E5FF', OK: '#FFD740', MISS: '#FF5
 const BONES = [[1,2],[7,8],[1,7],[2,8],[1,3],[3,5],[2,4],[4,6],[7,9],[9,11],[8,10],[10,12]];
 
 const context = cast.framework.CastReceiverContext.getInstance();
+window.addEventListener('error', e => report({ type: 'error', where: 'window', error: e.message + ' @' + e.lineno }));
 const playerManager = context.getPlayerManager();
 const video = document.getElementById('video');
 playerManager.setMediaElement(video);
@@ -141,6 +142,9 @@ function clearGame() {
 
 context.addCustomMessageListener(NAMESPACE, event => {
   const msg = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+  if (msg.type === 'level') {
+    report({ type: 'ack', of: 'level', players: msg.players.length, cues: msg.players.map(p => p.cues.length) });
+  }
   switch (msg.type) {
     case 'level': startLevel(msg); break;
     case 'judgement': showJudgement(msg); break;
@@ -181,7 +185,13 @@ function roundRect(x, y, w, h, r) {
   ctx.closePath();
 }
 
+let reportedDraw = false;
 function frame() {
+  try { draw(); } catch (e) { report({ type: 'error', where: 'draw', error: String(e && e.stack || e) }); game = null; }
+  requestAnimationFrame(frame);
+}
+
+function draw() {
   const dpr = window.devicePixelRatio || 1;
   if (canvas.width !== innerWidth * dpr || canvas.height !== innerHeight * dpr) {
     canvas.width = innerWidth * dpr; canvas.height = innerHeight * dpr;
@@ -202,6 +212,10 @@ function frame() {
       for (const c of p.cues) {
         const dt = c.t - now;
         if (dt > LEAD_MS || dt < -LINGER_MS) continue;
+        if (!reportedDraw) {
+          reportedDraw = true;
+          report({ type: 'drawn', now: Math.round(now), cueAt: c.t, canvas: canvas.width + 'x' + canvas.height });
+        }
         const top = targetTop + dt * pxPerMs;
         const fade = dt < 0 ? 1 + dt / LINGER_MS : 1;
         ctx.globalAlpha = fade;
@@ -213,7 +227,6 @@ function frame() {
       }
     }
   }
-  requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
 
