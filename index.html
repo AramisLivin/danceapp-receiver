@@ -19,6 +19,16 @@
   #idle { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2vh; }
   #idle h1 { font-size: 7vh; margin: 0; font-weight: 700; }
   #idle p { font-size: 3vh; margin: 0; opacity: .7; }
+  #menu { display: flex; flex-direction: column; gap: 1.2vh; min-width: 50vw; margin-top: 2vh; }
+  #menu .song { display: flex; justify-content: space-between; align-items: center; gap: 3vw; padding: 1.6vh 2.5vw;
+                border-radius: 1.5vh; background: rgba(255,255,255,.08); font-size: 3.6vh; border: .4vh solid transparent; }
+  #menu .song.selected { background: rgba(255,255,255,.18); border-color: #fff; }
+  #menu .who { font-size: 2.8vh; opacity: .55; }
+  #menu .song.selected .who { opacity: 1; color: #FFD740; }
+  .hint { font-size: 2.4vh; opacity: .55; margin-top: 2vh; }
+  #results .buttons { display: flex; gap: 3vw; margin-top: 2vh; }
+  #results .button { font-size: 3.4vh; padding: 1.4vh 3vw; border-radius: 4vh; border: .4vh solid rgba(255,255,255,.4); }
+  #results .button.selected { background: #fff; color: #000; border-color: #fff; }
   #scores { position: absolute; top: 2vh; left: 50%; transform: translateX(-50%); display: none; gap: 4vw;
             background: rgba(0,0,0,.55); border-radius: 1.5vh; padding: 1vh 2.5vw; font-size: 6vh; font-weight: 700; }
   .popup { position: absolute; top: 20vh; width: 50%; text-align: center; font-size: 10vh; font-weight: 900;
@@ -45,7 +55,7 @@
 </head>
 <body>
 <video id="video"></video>
-<div id="idle"><h1>DanceApp</h1><p>Выберите песню на планшете</p></div>
+<div id="idle"><h1>DanceApp</h1><p>Выберите песню на планшете</p><div id="menu"></div><div class="hint"></div></div>
 <div id="scores"></div>
 <div id="results"></div>
 <div id="caption"></div>
@@ -139,7 +149,18 @@ function showResults(msg) {
     el.querySelector('.hint').textContent = r.hint || '';
     row.appendChild(el);
   }
+  const buttons = document.createElement('div');
+  buttons.className = 'buttons';
+  buttons.innerHTML = '<div class="button">Ещё раз</div><div class="button">К списку</div>';
+  resultsEl.appendChild(buttons);
+  resultsChoice = 0;
+  renderResultsChoice();
   resultsEl.style.display = 'flex';
+}
+
+let resultsChoice = 0;
+function renderResultsChoice() {
+  resultsEl.querySelectorAll('.button').forEach((b, i) => b.classList.toggle('selected', i === resultsChoice));
 }
 
 function clearGame() {
@@ -147,6 +168,55 @@ function clearGame() {
   resetOverlay();
   caption.style.display = 'none';
   idle.style.display = 'flex';
+}
+
+// Song menu, driven by the remote: the tablet sends the list, OK sends the pick back
+let menu = null; // { songs: [{ id, title, duration, options: [label] }], selected, option: [per song] }
+const menuEl = document.getElementById('menu');
+const hintEl = idle.querySelector('.hint');
+
+function showMenu(msg) {
+  const previous = menu && menu.songs[menu.selected] && menu.songs[menu.selected].id;
+  menu = { songs: msg.songs, selected: 0, option: msg.songs.map(s => s.selectedOption || 0) };
+  const again = msg.songs.findIndex(s => s.id === previous);
+  if (again >= 0) menu.selected = again;
+  idle.querySelector('p').textContent = msg.songs.length ? 'Выберите песню пультом' : 'На планшете нет песен';
+  hintEl.textContent = '▲▼ песня   ◀▶ кто танцует   OK — начать';
+  renderMenu();
+}
+
+function renderMenu() {
+  menuEl.innerHTML = '';
+  if (!menu) return;
+  menu.songs.forEach((song, i) => {
+    const row = document.createElement('div');
+    row.className = 'song' + (i === menu.selected ? ' selected' : '');
+    const options = song.options;
+    const label = options[menu.option[i]] || '';
+    row.innerHTML = '<span class="title"></span><span class="who"></span>';
+    row.querySelector('.title').textContent = song.title + '  ·  ' + song.duration;
+    row.querySelector('.who').textContent = options.length > 1 && i === menu.selected ? '◀ ' + label + ' ▶' : label;
+    menuEl.appendChild(row);
+  });
+}
+
+function send(message) { report(message); }
+
+function onKey(key) {
+  if (resultsEl.style.display === 'flex') {
+    if (key === 'ArrowLeft' || key === 'ArrowRight') { resultsChoice = 1 - resultsChoice; renderResultsChoice(); }
+    if (key === 'Enter') send({ type: resultsChoice === 0 ? 'again' : 'menu' });
+    return;
+  }
+  if (game || !menu || !menu.songs.length || idle.style.display === 'none') return;
+  const n = menu.songs.length;
+  const options = menu.songs[menu.selected].options.length;
+  if (key === 'ArrowDown') menu.selected = (menu.selected + 1) % n;
+  if (key === 'ArrowUp') menu.selected = (menu.selected + n - 1) % n;
+  if (key === 'ArrowRight') menu.option[menu.selected] = (menu.option[menu.selected] + 1) % options;
+  if (key === 'ArrowLeft') menu.option[menu.selected] = (menu.option[menu.selected] + options - 1) % options;
+  if (key === 'Enter') { send({ type: 'start', id: menu.songs[menu.selected].id, option: menu.option[menu.selected] }); return; }
+  renderMenu();
 }
 
 // Latency calibration: the video is a metronome; the tablet tells players what to do and how it's going
@@ -169,6 +239,7 @@ context.addCustomMessageListener(NAMESPACE, event => {
     case 'results': showResults(msg); break;
     case 'clear': clearGame(); break;
     case 'calibration': showCaption(msg.text); break;
+    case 'menu': showMenu(msg); break;
   }
 });
 
@@ -263,11 +334,8 @@ playerManager.addEventListener(cast.framework.events.EventType.ERROR, e => {
   report({ type: 'error', detailedErrorCode: e.detailedErrorCode, error: String(e.error && (e.error.message || e.error)) });
 });
 
-// Remote control experiment: do D-pad presses reach a Cast receiver on this TV? Shown on screen and reported.
-document.addEventListener('keydown', e => {
-  report({ type: 'key', key: e.key, code: e.code, keyCode: e.keyCode });
-  if (!game) idle.querySelector('p').textContent = 'Кнопка пульта: ' + (e.key || e.keyCode);
-});
+// The remote's D-pad and OK arrive as plain key presses (checked on the SHIELD)
+document.addEventListener('keydown', e => onKey(e.key));
 
 // Stay up between songs: the tablet decides when the session ends
 const options = new cast.framework.CastReceiverOptions();
