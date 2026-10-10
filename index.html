@@ -217,6 +217,17 @@ function frame() {
 }
 requestAnimationFrame(frame);
 
+// Report back to the tablet, which logs it: the only window into the TV when debugging
+function report(message) {
+  try { context.sendCustomMessage(NAMESPACE, undefined, message); } catch (e) { /* no sender yet */ }
+}
+context.addEventListener(cast.framework.system.EventType.SENDER_CONNECTED, () => {
+  report({ type: 'hello', screen: innerWidth + 'x' + innerHeight, dpr: devicePixelRatio, ua: navigator.userAgent });
+});
+playerManager.addEventListener(cast.framework.events.EventType.ERROR, e => {
+  report({ type: 'error', detailedErrorCode: e.detailedErrorCode, error: String(e.error && (e.error.message || e.error)) });
+});
+
 // Stay up between songs: the tablet decides when the session ends
 const options = new cast.framework.CastReceiverOptions();
 options.disableIdleTimeout = true;
