@@ -75,7 +75,6 @@
   .popup.left { left: 6%; width: 44%; }
   .popup.right { left: 50%; width: 44%; }
   .popup span { display: inline-block; color: var(--c); text-shadow: 0 0 2vh var(--c), 0 .6vh 1.5vh #000; }
-  .popup { will-change: transform, opacity; }
   .popup.show { animation: pop 1.2s cubic-bezier(.2, 1.4, .4, 1) forwards; }
   .popup.show.miss { animation: popmiss 1s ease-out forwards; }
   @keyframes pop { 0% { transform: scale(.3) rotate(-8deg); opacity: 0; } 15% { transform: scale(1.15) rotate(2deg); opacity: 1; }
@@ -88,17 +87,18 @@
   @keyframes spark { 0% { transform: translate(0, 0) scale(1.6); opacity: 1; } 65% { opacity: 1; }
                      100% { transform: translate(var(--dx), var(--dy)) rotate(var(--r)) scale(.6); opacity: 0; } }
 
-  #comboflash { position: absolute; left: 0; right: 0; top: 40vh; text-align: center; font-size: 13vh; font-weight: 900;
-                pointer-events: none; opacity: 0; }
+  /* A small box at the very center, scaled about its own middle. Not full-width and no will-change: the
+     SHIELD drew a full-screen promoted layer as a blurry copy stretched out from the top-left corner */
+  #comboflash { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); transform-origin: 50% 50%;
+                white-space: nowrap; font-size: 13vh; font-weight: 900; pointer-events: none; opacity: 0; }
   /* Animations here touch only transform and opacity, on their own layers: the SHIELD's browser stutters
      when big glowing text has to be laid out or repainted every frame */
-  #comboflash { will-change: transform, opacity; }
   #comboflash.show { animation: combo 1.4s ease-out forwards; }
-  @keyframes combo { 0% { transform: scale(2.5); opacity: 0; } 20% { transform: scale(1); opacity: 1; }
-                     75% { opacity: 1; } 100% { transform: scale(.9); opacity: 0; } }
+  @keyframes combo { 0% { transform: translate(-50%, -50%) scale(1.8); opacity: 0; } 20% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+                     75% { opacity: 1; } 100% { transform: translate(-50%, -50%) scale(.92); opacity: 0; } }
   #comboflash span { background: linear-gradient(90deg, var(--gold), var(--pink), var(--cyan)); -webkit-background-clip: text; color: transparent;
                      filter: drop-shadow(0 .4vh .3vh rgba(0, 0, 0, .9)) drop-shadow(0 0 2vh rgba(255, 215, 64, .6)); }
-  #edge { position: absolute; inset: 0; pointer-events: none; opacity: 0; box-shadow: inset 0 0 12vh 3vh var(--c); will-change: opacity; }
+  #edge { position: absolute; inset: 0; pointer-events: none; opacity: 0; box-shadow: inset 0 0 12vh 3vh var(--c); }
   #edge.show { animation: edge 1.2s ease-out; }
   @keyframes edge { 20% { opacity: 1; } 100% { opacity: 0; } }
 
