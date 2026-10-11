@@ -1,0 +1,193 @@
+/* DanceApp TV receiver; markup in index.html */
+:root { --pink: #FF4081; --cyan: #00E5FF; --gold: #FFD740; --green: #76FF03; --red: #FF5252; }
+html, body { margin: 0; height: 100%; background: #07060f; overflow: hidden; color: #fff;
+             font-family: Rubik, Roboto, "Noto Sans", sans-serif; }
+video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #000; }
+
+/* ---------- Menu: sizes follow the tablet's dp, 1dp = .125vh ---------- */
+#idle { position: absolute; inset: 0; overflow: hidden; background: #07060f; }
+#idle > header, #idle > section, #idle > footer, #status { position: absolute; }
+
+/* Disco hall: breathing lights and a turning mirror ball's sparkles, built by menu.js. Transform and opacity only */
+#disco { position: absolute; inset: 0; pointer-events: none; }
+.light { position: absolute; border-radius: 50%; animation: breathe var(--period) ease-in-out var(--delay) infinite alternate; }
+@keyframes breathe { from { transform: translate(0, 0) scale(.92); opacity: .5; }
+                     to { transform: translate(var(--dx), var(--dy)) scale(1.08); opacity: 1; } }
+/* Two copies of the sparkles side by side, sliding one screen left every 40 s: they wrap around seamlessly */
+.ball { position: absolute; left: 0; top: 0; width: 200vw; height: 100%; animation: turn 40s linear infinite; }
+@keyframes turn { to { transform: translateX(-100vw); } }
+.sparkle { position: absolute; width: 1.6vh; height: 1.6vh; margin: -.8vh 0 0 -.8vh; border-radius: 50%;
+           background: radial-gradient(circle, #fff 0 12%, rgba(255,255,255,.45) 18%, transparent 60%);
+           opacity: .25; animation: twinkle var(--period) linear var(--delay) infinite; }
+@keyframes twinkle { 0%, 70% { opacity: .25; transform: scale(1); } 82% { opacity: 1; transform: scale(2.6); } 94%, 100% { opacity: .25; transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .light, .ball, .sparkle { animation: none; } }
+
+header { left: 6vh; right: 6vh; top: 3.5vh; height: 7vh; display: flex; align-items: center; gap: 2.5vh; }
+.logo { font-size: 5vh; font-weight: 900; margin: 0; background: linear-gradient(90deg, var(--cyan), #b388ff 45%, var(--pink));
+        -webkit-background-clip: text; color: transparent; filter: drop-shadow(0 0 1.5vh rgba(255, 64, 129, .5)); }
+header .title { font-size: 5vh; font-weight: 900; margin: 0; }
+.back { width: 6.5vh; height: 6.5vh; border-radius: 50%; box-sizing: border-box; display: flex; align-items: center; justify-content: center;
+        background: rgba(5, 4, 15, .7); border: .25vh solid rgba(255,255,255,.35); transition: transform .15s, border-color .15s, box-shadow .15s; }
+.back svg { width: 2.5vh; height: 2.5vh; fill: none; stroke: #fff; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+.back.focus { border-color: #fff; transform: scale(1.12); box-shadow: 0 0 3vh rgba(255,255,255,.35); }
+#idle:not(.setup) .back, #idle:not(.setup) header .title, #idle.setup .logo { display: none; }
+#status { left: 0; right: 0; top: 45vh; margin: 0; text-align: center; font-size: 3.4vh; opacity: .7; }
+#idle:not(.empty) #status, #idle.empty > section, #idle.setup #songs, #idle:not(.setup) #lineups { display: none; }
+
+#songs { left: 6vh; right: 6vh; top: 14vh; bottom: 12vh; display: flex; gap: 4.5vh; }
+#list { width: 50vh; flex: none; display: flex; flex-direction: column; gap: 1.5vh; }
+.row { display: flex; align-items: center; gap: 2vh; padding: 1.5vh; border-radius: 2.75vh; background: rgba(255,255,255,.04);
+       border: .25vh solid transparent; transition: background .15s, border-color .15s, box-shadow .15s; }
+.row.selected { background: linear-gradient(90deg, var(--soft), rgba(255,255,255,.03)); border-color: var(--c); box-shadow: 0 0 5vh var(--glow); }
+.icon { position: relative; width: 9vh; height: 9vh; flex: none; border-radius: 2.25vh; overflow: hidden;
+        background: radial-gradient(circle, var(--soft2), rgba(7, 6, 15, .85)); }
+.icon svg, .poster .figure svg { position: absolute; }
+.row .name { font-size: 3vh; font-weight: 700; }
+.row .meta { display: flex; align-items: center; gap: 1.75vh; margin-top: .75vh; font-size: 1.9vh; color: rgba(255,255,255,.6); }
+.people { display: flex; gap: .4vh; }
+.people svg { height: 2vh; width: 1.44vh; fill: rgba(255,255,255,.75); }
+.stars { letter-spacing: .1vh; color: rgba(255,255,255,.18); }
+.stars b { color: var(--gold); font-weight: 400; }
+
+#preview { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2.75vh; }
+#preview .screen { position: relative; flex: 1; border-radius: 3.75vh; overflow: hidden; background: #000;
+                   border: .375vh solid var(--c); box-shadow: 0 0 5vh var(--glow); }
+#preview video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; background: none; opacity: 0; transition: opacity .4s; }
+#preview video.playing { opacity: 1; }
+#preview .info { display: flex; align-items: flex-end; gap: 3vh; }
+#preview .info > div:first-child { flex: 1; min-width: 0; }
+#preview h2 { font-size: 7vh; font-weight: 900; line-height: 1; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.facts { display: flex; align-items: center; gap: 3vh; margin-top: 1.25vh; font-size: 2.1vh; color: rgba(255,255,255,.75); white-space: nowrap; }
+.facts > span { display: inline-flex; align-items: center; gap: 1vh; }
+.facts .record { color: var(--gold); }
+.facts .none { color: rgba(255,255,255,.55); }
+.bars { display: inline-flex; align-items: flex-end; gap: .5vh; height: 2.5vh; }
+.bars i { width: .8vh; border-radius: .3vh; background: rgba(255,255,255,.2); }
+.bars i:nth-child(1) { height: 50%; } .bars i:nth-child(2) { height: 75%; } .bars i:nth-child(3) { height: 100%; }
+.bars i.on { background: var(--c); }
+.pill { font-size: 2.25vh; font-weight: 700; padding: 1.5vh 3.5vh; border-radius: 99vh; white-space: nowrap;
+        background: linear-gradient(90deg, var(--cyan), var(--pink)); box-shadow: 0 0 3vh rgba(255, 64, 129, .45); }
+
+#lineups { left: 0; right: 0; top: 14vh; bottom: 12vh; display: flex; align-items: center; justify-content: center; gap: 3.5vh; }
+.poster { position: relative; width: 42.5vh; height: 62.5vh; flex: none; box-sizing: border-box; border-radius: 4.25vh;
+          border: .375vh solid transparent; opacity: .55; transform: scale(.96); transition: transform .18s, opacity .18s;
+          background: radial-gradient(circle, var(--soft2), rgba(5, 4, 15, .9) 75%) padding-box, var(--ring) border-box;
+          box-shadow: var(--shadow); }
+.poster.focus { opacity: 1; transform: scale(1.04); }
+.poster .figure { position: absolute; left: 1vh; right: 1vh; top: 3vh; height: 39.5vh; }
+.poster .words { position: absolute; left: 3.5vh; right: 3.5vh; bottom: 3.5vh; }
+.poster .words b { display: block; font-size: 5.5vh; font-weight: 900; }
+.poster .words span { font-size: 2.1vh; color: rgba(255,255,255,.7); }
+
+footer.hint { left: 6vh; bottom: 3vh; display: flex; gap: 3vh; font-size: 2.1vh; color: rgba(255,255,255,.55); }
+.key { display: inline-block; padding: .2vh 1vh; margin-right: .8vh; border: .25vh solid rgba(255,255,255,.4); border-radius: .8vh; color: #fff; }
+
+/* ---------- In game ---------- */
+#progress { position: absolute; left: 0; top: 0; height: .9vh; width: 100%; background: rgba(255,255,255,.12); display: none; }
+#progress div { height: 100%; width: 0; background: linear-gradient(90deg, var(--cyan), var(--pink)); box-shadow: 0 0 1.5vh var(--pink); }
+#scores { position: absolute; top: 2.5vh; left: 50%; transform: translateX(-50%); display: none; gap: 2.5vw; }
+.scorecard { position: relative; display: flex; flex-direction: column; align-items: center; min-width: 16vw; padding: 1vh 2vw 1.2vh;
+             background: rgba(5, 4, 15, .62); border-radius: 2vh; border-top: .6vh solid currentColor; }
+/* Two players: a combo milestone is celebrated on that player's own card, not across the screen */
+.scorecard::after { content: ''; position: absolute; inset: -.6vh; border-radius: 2.4vh; opacity: 0;
+                    box-shadow: 0 0 4vh 1vh currentColor, inset 0 0 2vh currentColor; }
+.scorecard.milestone::after { animation: cardglow 1.3s ease-out; }
+@keyframes cardglow { 12% { opacity: 1; } 100% { opacity: 0; } }
+.scorecard.milestone .points { animation: bigbump .5s cubic-bezier(.2, 1.6, .4, 1); }
+@keyframes bigbump { 35% { transform: scale(1.4); } }
+.scorecard .badge { position: absolute; left: 50%; top: 100%; margin-top: 1.2vh; white-space: nowrap; font-size: 4.4vh; font-weight: 900;
+                    opacity: 0; transform: translateX(-50%); text-shadow: 0 0 1.5vh currentColor, 0 .3vh .6vh #000; }
+.scorecard.milestone .badge { animation: badge 1.5s cubic-bezier(.2, 1.4, .4, 1) forwards; }
+@keyframes badge { 0% { transform: translate(-50%, -2vh) scale(.4); opacity: 0; } 15% { transform: translate(-50%, 0) scale(1.15); opacity: 1; }
+                   30% { transform: translate(-50%, 0) scale(1); } 75% { opacity: 1; } 100% { transform: translate(-50%, 1vh); opacity: 0; } }
+.scorecard .points { font-size: 6.5vh; font-weight: 900; color: #fff; line-height: 1.05; }
+.scorecard .combo { font-size: 2.4vh; font-weight: 700; letter-spacing: .3vh; opacity: 0; transition: opacity .2s; }
+.scorecard .combo.on { opacity: 1; }
+.scorecard .points { will-change: transform; }
+.scorecard.bump .points { animation: bump .35s ease-out; }
+@keyframes bump { 30% { transform: scale(1.18); } }
+
+.strip { position: absolute; inset: 0; pointer-events: none; }
+.target { position: absolute; border-style: solid; box-sizing: border-box; }
+.target::after { content: ''; position: absolute; inset: -.5vh; border-radius: inherit; opacity: 0; will-change: opacity;
+                 box-shadow: 0 0 5vh 1.5vh var(--flash), inset 0 0 4vh var(--flash); }
+.target.flash::after { animation: flash .5s ease-out; }
+@keyframes flash { 0% { opacity: 1; } 100% { opacity: 0; } }
+.cue { position: absolute; display: none; background: rgba(5,4,15,.6); will-change: transform, opacity; }
+
+.cue svg { position: absolute; inset: 6%; width: 88%; height: 88%; }
+
+.popup { position: absolute; top: 24vh; width: 50%; text-align: center; font-size: 9.5vh; font-weight: 900; opacity: 0;
+         letter-spacing: -.2vh; pointer-events: none; }
+.popup.solo { left: 25%; }
+/* Pulled in towards the middle, clear of the cue strips at the edges */
+.popup.left { left: 6%; width: 44%; }
+.popup.right { left: 50%; width: 44%; }
+.popup span { display: inline-block; color: var(--c); text-shadow: 0 0 2vh var(--c), 0 .6vh 1.5vh #000; }
+.popup.show { animation: pop 1.2s cubic-bezier(.2, 1.4, .4, 1) forwards; }
+.popup.show.miss { animation: popmiss 1s ease-out forwards; }
+@keyframes pop { 0% { transform: scale(.3) rotate(-8deg); opacity: 0; } 15% { transform: scale(1.15) rotate(2deg); opacity: 1; }
+                 30% { transform: scale(1) rotate(0); } 70% { opacity: 1; } 100% { transform: translateY(-4vh); opacity: 0; } }
+@keyframes popmiss { 0% { opacity: 0; } 10% { opacity: 1; transform: translateX(-2vh); } 20% { transform: translateX(2vh); }
+                     30% { transform: translateX(-1vh); } 40% { transform: translateX(0); } 70% { opacity: .9; } 100% { opacity: 0; transform: translateY(3vh); } }
+.spark { position: absolute; width: 4vh; height: 4vh; margin: -2vh 0 0 -2vh; pointer-events: none; font-size: 4.2vh;
+         line-height: 4vh; text-align: center; color: var(--c); text-shadow: 0 0 1.2vh var(--c), 0 0 .3vh #000;
+         animation: spark .8s cubic-bezier(.1, .7, .3, 1) forwards; will-change: transform, opacity; }
+@keyframes spark { 0% { transform: translate(0, 0) scale(1.6); opacity: 1; } 65% { opacity: 1; }
+                   100% { transform: translate(var(--dx), var(--dy)) rotate(var(--r)) scale(.6); opacity: 0; } }
+
+/* A small box at the very center, scaled about its own middle. Not full-width and no will-change: the
+   SHIELD drew a full-screen promoted layer as a blurry copy stretched out from the top-left corner */
+#comboflash { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); transform-origin: 50% 50%;
+              white-space: nowrap; font-size: 13vh; font-weight: 900; pointer-events: none; opacity: 0; }
+/* Animations here touch only transform and opacity, on their own layers: the SHIELD's browser stutters
+   when big glowing text has to be laid out or repainted every frame */
+#comboflash.show { animation: combo 1.4s ease-out forwards; }
+@keyframes combo { 0% { transform: translate(-50%, -50%) scale(1.8); opacity: 0; } 20% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+                   75% { opacity: 1; } 100% { transform: translate(-50%, -50%) scale(.92); opacity: 0; } }
+#comboflash span { background: linear-gradient(90deg, var(--gold), var(--pink), var(--cyan)); -webkit-background-clip: text; color: transparent;
+                   filter: drop-shadow(0 .4vh .3vh rgba(0, 0, 0, .9)) drop-shadow(0 0 2vh rgba(255, 215, 64, .6)); }
+#edge { position: absolute; inset: 0; pointer-events: none; opacity: 0; box-shadow: inset 0 0 12vh 3vh var(--c); }
+#edge.show { animation: edge 1.2s ease-out; }
+@keyframes edge { 20% { opacity: 1; } 100% { opacity: 0; } }
+
+#intro { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 2vh;
+         background: radial-gradient(ellipse at center, rgba(10, 6, 30, .85), rgba(0,0,0,.4)); pointer-events: none; }
+#intro.show { display: flex; animation: intro 3s ease-in-out forwards; }
+@keyframes intro { 0% { opacity: 0; } 15% { opacity: 1; } 75% { opacity: 1; } 100% { opacity: 0; } }
+#intro h1 { font-size: 10vh; font-weight: 900; margin: 0; animation: slidein .8s cubic-bezier(.2, 1.3, .4, 1); }
+#intro p { font-size: 3.4vh; margin: 0; opacity: .8; }
+@keyframes slidein { from { transform: translateY(6vh); opacity: 0; } }
+
+.presence { position: absolute; bottom: 4vh; width: 50%; text-align: center; font-size: 3.4vh; font-weight: 700; display: none; }
+.presence span { background: rgba(5,4,15,.75); padding: 1.2vh 2.4vw; border-radius: 1.4vh; border: .3vh solid var(--red);
+                 animation: blink 1.2s ease-in-out infinite; }
+@keyframes blink { 50% { border-color: transparent; } }
+
+/* ---------- Results ---------- */
+#results { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 3vh;
+           background: radial-gradient(ellipse at 50% 30%, rgba(42, 15, 74, .93), rgba(5, 4, 12, .96)); }
+#results h2 { font-size: 5vh; margin: 0; font-weight: 500; opacity: .85; }
+#results .players { display: flex; gap: 8vw; align-items: flex-end; margin-top: 5vh; }
+#results .player { display: flex; flex-direction: column; align-items: center; gap: 1.4vh; position: relative; }
+#results .crown { font-size: 7vh; position: absolute; top: -8vh; animation: crown 1s 1.8s cubic-bezier(.2, 1.5, .4, 1) both; }
+@keyframes crown { from { transform: translateY(-5vh) scale(0); } }
+#results .who { font-size: 3.4vh; font-weight: 700; }
+#results .stars { font-size: 8vh; letter-spacing: 1vh; }
+#results .star { display: inline-block; color: rgba(255,255,255,.18); }
+#results .star.on { color: var(--gold); text-shadow: 0 0 2vh var(--gold); animation: starpop .45s cubic-bezier(.2, 1.6, .4, 1) both; }
+@keyframes starpop { from { transform: scale(0) rotate(-90deg); } }
+#results .points { font-size: 8vh; font-weight: 900; }
+#results .max { font-size: 3vh; opacity: .5; font-weight: 400; margin-top: -1.5vh; }
+#results .chips { display: flex; gap: 1vw; }
+#results .chip { font-size: 2.4vh; padding: .6vh 1.2vw; border-radius: 3vh; background: rgba(255,255,255,.08); border: .25vh solid var(--c); }
+#results .chip b { color: var(--c); }
+#results .extra { font-size: 2.6vh; opacity: .75; }
+#results .buttons { display: flex; gap: 3vw; margin-top: 2vh; }
+#results .button { font-size: 3.4vh; font-weight: 700; padding: 1.5vh 3.5vw; border-radius: 5vh; border: .4vh solid rgba(255,255,255,.35);
+                   transition: transform .15s, background .15s; }
+#results .button.selected { background: linear-gradient(90deg, var(--cyan), var(--pink)); border-color: transparent; transform: scale(1.08);
+                            box-shadow: 0 0 3vh rgba(255, 64, 129, .5); }
+
+#caption { position: absolute; left: 0; right: 0; bottom: 8vh; text-align: center; font-size: 5vh; font-weight: 700;
+           text-shadow: 0 .4vh 1.2vh #000; display: none; }

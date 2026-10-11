@@ -1,0 +1,246 @@
+// ---------- A round: replaced by each "level" message ----------
+let game = null;
+
+function resetOverlay() {
+  document.querySelectorAll('.popup, .presence, .strip, .spark').forEach(e => e.remove());
+  scoresEl.innerHTML = '';
+  scoresEl.style.display = 'none';
+  progressEl.style.display = 'none';
+  resultsEl.style.display = 'none';
+  intro.classList.remove('show');
+}
+
+function startLevel(msg) {
+  resetOverlay();
+  caption.style.display = 'none';
+  const solo = msg.players.length === 1;
+  game = {
+    durationMs: msg.durationMs || 0,
+    players: msg.players.map(p => {
+      // A lone player is gold; two players wear their side's color
+      const color = solo ? '#FFD740' : p.color;
+      const card = document.createElement('div');
+      card.className = 'scorecard';
+      card.style.color = color;
+      card.innerHTML = '<div class="points">0</div><div class="combo"></div><div class="badge"></div>';
+      scoresEl.appendChild(card);
+      const popup = document.createElement('div');
+      popup.className = 'popup ' + (solo ? 'solo' : p.side.toLowerCase());
+      document.body.appendChild(popup);
+      const presence = document.createElement('div');
+      presence.className = 'presence';
+      presence.style.left = solo ? '25%' : (p.side === 'LEFT' ? '0' : '50%');
+      presence.innerHTML = '<span></span>';
+      presence.querySelector('span').textContent = solo ? 'Встаньте в кадр' : p.label + ': встаньте в кадр';
+      document.body.appendChild(presence);
+      return { ...p, solo, color, judged: {}, cardEl: card, popupEl: popup, presenceEl: presence };
+    }),
+  };
+  game.players.forEach(p => buildCues(p, msg.aspectRatio));
+  scoresEl.style.display = 'flex';
+  progressEl.style.display = 'block';
+  idle.style.display = 'none';
+
+  intro.querySelector('h1').textContent = msg.title || '';
+  intro.querySelector('p').textContent = solo ? '' : msg.players.map(p => p.label).join('   ·   ');
+  replay(intro, 'show');
+}
+
+function player(side) { return game && game.players.find(p => p.side === side); }
+
+// Stars flying out of a PERFECT
+function burst(p, color) {
+  const rect = p.popupEl.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
+  for (let i = 0; i < SPARKS; i++) {
+    const spark = document.createElement('div');
+    spark.className = 'spark';
+    spark.textContent = i % 3 ? '✦' : '★';
+    const angle = (i / SPARKS) * 2 * Math.PI + Math.random() * .3;
+    const dist = innerHeight * (.14 + Math.random() * .12);
+    spark.style.cssText = `left:${cx}px;top:${cy}px;--c:${color};--dx:${Math.cos(angle) * dist}px;--dy:${Math.sin(angle) * dist}px;` +
+      `--r:${Math.round(Math.random() * 360)}deg`;
+    spark.addEventListener('animationend', () => spark.remove());
+    document.body.appendChild(spark);
+  }
+}
+
+function showJudgement(msg) {
+  const p = player(msg.side);
+  if (!p) return;
+  const color = COLORS[msg.judgement];
+  p.judged[msg.t] = msg.judgement;
+
+  countTo(p.cardEl.querySelector('.points'), msg.points);
+  replay(p.cardEl, 'bump');
+  const combo = msg.combo || 0;
+  const comboEl = p.cardEl.querySelector('.combo');
+  comboEl.textContent = 'COMBO ' + combo;
+  comboEl.classList.toggle('on', combo >= 3);
+
+  p.popupEl.innerHTML = '<span></span>';
+  p.popupEl.firstChild.textContent = LABELS[msg.judgement];
+  p.popupEl.style.setProperty('--c', color);
+  p.popupEl.classList.toggle('miss', msg.judgement === 'MISS');
+  replay(p.popupEl, 'show');
+
+  p.targetEl.style.setProperty('--flash', color);
+  replay(p.targetEl, 'flash');
+
+  if (msg.judgement === 'PERFECT') burst(p, color);
+  if (combo > 0 && combo % COMBO_MILESTONE === 0 && !p.solo) {
+    p.cardEl.querySelector('.badge').textContent = 'COMBO ' + combo + '!';
+    replay(p.cardEl, 'milestone');
+  } else if (combo > 0 && combo % COMBO_MILESTONE === 0) {
+    comboFlash.innerHTML = '<span></span>';
+    comboFlash.firstChild.textContent = 'COMBO ' + combo + '!';
+    replay(comboFlash, 'show');
+    edge.style.setProperty('--c', p.solo ? '#FFD740' : p.color);
+    replay(edge, 'show');
+  }
+}
+
+function showResults(msg) {
+  // The round is over: only the results stay on screen
+  game = null;
+  document.querySelectorAll('.popup, .presence, .strip, .spark').forEach(e => e.remove());
+  scoresEl.style.display = 'none';
+  progressEl.style.display = 'none';
+  const solo = msg.players.length === 1;
+  const best = Math.max(...msg.players.map(r => r.points));
+  const winners = msg.players.filter(r => r.points === best).length;
+  resultsEl.innerHTML = '<h2></h2><div class="players"></div>';
+  resultsEl.querySelector('h2').textContent = msg.title;
+  const row = resultsEl.querySelector('.players');
+  for (const r of msg.players) {
+    const el = document.createElement('div');
+    el.className = 'player';
+    const crown = !solo && winners === 1 && r.points === best;
+    el.innerHTML = (crown ? '<div class="crown">👑</div>' : '') + (solo ? '' : '<div class="who"></div>') +
+      '<div class="stars"></div><div class="points">0</div><div class="max"></div><div class="chips"></div><div class="extra"></div>';
+    if (!solo) { el.querySelector('.who').textContent = r.label; el.querySelector('.who').style.color = r.color; }
+    const stars = el.querySelector('.stars');
+    for (let i = 0; i < 5; i++) {
+      const s = document.createElement('span');
+      s.className = 'star' + (i < r.stars ? ' on' : '');
+      s.textContent = '★';
+      s.style.animationDelay = (0.5 + i * 0.25) + 's';
+      stars.appendChild(s);
+    }
+    el.querySelector('.max').textContent = 'из ' + r.maxPoints;
+    const chips = el.querySelector('.chips');
+    for (const name of Object.keys(LABELS)) {
+      const chip = document.createElement('div');
+      chip.className = 'chip';
+      chip.style.setProperty('--c', COLORS[name]);
+      chip.innerHTML = '<b></b> ';
+      chip.firstChild.textContent = (r.counts && r.counts[name]) || 0;
+      chip.appendChild(document.createTextNode(LABELS[name].replace('!', '')));
+      chips.appendChild(chip);
+    }
+    el.querySelector('.extra').textContent = 'Лучшее комбо: ' + (r.bestCombo || 0) + (r.hint ? '   ·   ' + r.hint : '');
+    row.appendChild(el);
+    setTimeout(() => countTo(el.querySelector('.points'), r.points, 1400), 300);
+  }
+  const buttons = document.createElement('div');
+  buttons.className = 'buttons';
+  buttons.innerHTML = '<div class="button">Ещё раз</div><div class="button">К списку</div>';
+  resultsEl.appendChild(buttons);
+  resultsChoice = 0;
+  renderResultsChoice();
+  resultsEl.style.display = 'flex';
+}
+
+let resultsChoice = 0;
+function renderResultsChoice() {
+  resultsEl.querySelectorAll('.button').forEach((b, i) => b.classList.toggle('selected', i === resultsChoice));
+}
+
+function clearGame() {
+  game = null;
+  resetOverlay();
+  caption.style.display = 'none';
+  idle.style.display = '';
+}
+
+// ---------- Latency calibration: the video is a metronome ----------
+function showCaption(text) {
+  idle.style.display = 'none';
+  caption.textContent = text;
+  caption.style.display = 'block';
+}
+
+// Gradient tint per player, matching the tablet
+const TINTS = { solo: '#ffe9a8', LEFT: '#c8f7ff', RIGHT: '#ffd0e2' };
+
+function buildCues(p, aspect) {
+  const strip = document.createElement('div');
+  strip.className = 'strip';
+  const target = document.createElement('div');
+  target.className = 'target';
+  strip.appendChild(target);
+  for (const c of p.cues) {
+    c.el = document.createElement('div');
+    c.el.className = 'cue';
+    const key = p.solo ? 'solo' : p.side;
+    // Each figure carries its own gradient; ids are unique per player, and identical ones may be shared
+    c.el.appendChild(figureSvg(c.p, c.f, aspect, TINTS[key], 'skin-' + key));
+    strip.appendChild(c.el);
+  }
+  document.body.appendChild(strip);
+  p.targetEl = target;
+}
+
+let reportedDraw = false;
+function frame() {
+  try { draw(); } catch (e) { report({ type: 'error', where: 'draw', error: String(e && e.stack || e) }); game = null; }
+  requestAnimationFrame(frame);
+}
+
+function draw() {
+  if (!game) return;
+  const now = video.currentTime * 1000;
+  const duration = game.durationMs || (video.duration * 1000) || 0;
+  if (duration > 0) progressEl.firstChild.style.width = Math.min(100, 100 * now / duration) + '%';
+  const cue = innerHeight * 0.17;
+  const stripTop = innerHeight * 0.075, stripHeight = innerHeight * 0.85;
+  const targetTop = stripTop + cue * 0.25;
+  const pxPerMs = (stripTop + stripHeight - targetTop) / LEAD_MS;
+  for (const p of game.players) {
+    const left = p.solo || p.side === 'LEFT' ? innerWidth * 0.02 : innerWidth * 0.98 - cue;
+    const box = `left:${left}px;width:${cue}px;height:${cue}px;border-radius:${cue * 0.12}px;`;
+    if (p.targetBox !== box) {
+      // Style the target only when the layout changes, so its flash animation isn't reset every frame
+      p.targetBox = box;
+      p.targetEl.style.cssText = box + `top:${targetTop}px;border-width:${cue * 0.03}px;border-color:${p.color};`;
+    }
+    for (const c of p.cues) {
+      const dt = c.t - now;
+      if (dt > LEAD_MS || dt < -LINGER_MS) {
+        if (c.shown) { c.el.style.display = 'none'; c.shown = false; }
+        continue;
+      }
+      // Size and place once (and on resize); per frame only transform, opacity and color change
+      if (c.box !== box) {
+        c.box = box;
+        // Dark card glowing in the player's color at the center, as on the tablet
+        c.el.style.cssText = box + `top:${targetTop}px;background:radial-gradient(circle at 50% 40%,${rgba(p.color, .35)},rgba(5,4,15,.78) 70%);`;
+      }
+      if (!reportedDraw) {
+        reportedDraw = true;
+        report({ type: 'drawn', now: Math.round(now), cueAt: c.t });
+      }
+      const judged = p.judged[c.t];
+      // Cues grow a little as they near the target, as if coming at the player
+      const grow = dt > 0 ? 0.85 + 0.15 * (1 - dt / LEAD_MS) : 1;
+      const style = c.el.style;
+      if (!c.shown) { style.display = 'block'; c.shown = true; }
+      style.transform = `translate3d(0, ${(dt * pxPerMs).toFixed(1)}px, 0) scale(${grow.toFixed(3)})`;
+      style.opacity = dt < 0 ? 1 + dt / LINGER_MS : 1;
+      // Once judged, the card's ring takes the judgement's color
+      const ring = judged ? COLORS[judged] : null;
+      if (c.ring !== ring) { style.boxShadow = ring ? `inset 0 0 0 .5vh ${ring}, 0 0 2.5vh ${ring}` : ''; c.ring = ring; }
+    }
+  }
+}
+requestAnimationFrame(frame);
