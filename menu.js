@@ -194,7 +194,10 @@ function stopPreview() {
 
 // Back on the menu after a game or calibration
 function resumeMenu() {
-  if (menu && menu.screen === 'list' && menu.songs.length) schedulePreview(menu.songs[menu.selected]);
+  if (!menu || !menu.songs.length) return;
+  if (menu.screen === 'list') schedulePreview(menu.songs[menu.selected]);
+  // Fresh posters: the chosen one flew off when the song started
+  else openSetup(menu.focus);
 }
 
 previewVideo.addEventListener('playing', () => previewVideo.classList.add('playing'));
@@ -232,6 +235,9 @@ function onKey(key) {
   if (BACK_KEYS.includes(key) || (key === 'Enter' && back)) { openList(); return; }
   if (key === 'Enter') {
     stopPreview();
+    // The chosen poster grows and fades while the others fly off to the sides; the lobby follows
+    lineupsEl.querySelectorAll('.poster').forEach((p, i) =>
+      p.classList.add(i === menu.focus ? 'chosen' : i < menu.focus ? 'gone-left' : 'gone-right'));
     report({ type: 'start', id: menu.songs[menu.selected].id, option: menu.focus });
     return;
   }

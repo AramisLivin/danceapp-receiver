@@ -2,7 +2,7 @@
 let game = null;
 
 function resetOverlay() {
-  document.querySelectorAll('.popup, .presence, .join, .strip, .spark').forEach(e => e.remove());
+  document.querySelectorAll('.popup, .presence, .join, .strip, .spark, .door').forEach(e => e.remove());
   lobbyEl.style.display = 'none';
   scoresEl.innerHTML = '';
   scoresEl.style.display = 'none';
@@ -56,8 +56,9 @@ function startLevel(msg) {
 // The song starts: the lobby gives way to the game
 function go() {
   if (!game) return;
+  const fromLobby = game.lobby;
   game.lobby = false;
-  lobbyEl.style.display = 'none';
+  if (fromLobby) openLobby(); else lobbyEl.style.display = 'none';
   scoresEl.style.display = 'flex';
   progressEl.style.display = 'block';
   layout();
@@ -126,7 +127,10 @@ function showLobby(msg) {
     }
   }
   lobbyEl.querySelector('.count').textContent = '';
+  lobbyEl.querySelector('.go').classList.remove('show');
   lobbyEl.style.display = 'block';
+  // Coming in: the hall fades up, the players' cards slide out from the middle to their halves
+  replay(lobbyEl, 'enter');
 }
 
 function updateLobby(msg) {
@@ -147,11 +151,45 @@ function updateLobby(msg) {
   }
 }
 
+// Each number in its own color, as on the tablet: cyan, lilac, pink
+const COUNT_COLORS = { 3: '#00E5FF', 2: '#B388FF', 1: '#FF4081' };
+
 function showCountdown(n) {
   if (!game || !game.lobby) return;
   const count = lobbyEl.querySelector('.count');
   count.textContent = n;
+  lobbyEl.style.setProperty('--beat', COUNT_COLORS[n] || '#FFD740');
   replay(count, 'show');
+  replay(lobbyEl.querySelector('.ripple'), 'show');
+  replay(lobbyEl.querySelector('.flash'), 'show');
+}
+
+// The lobby opens onto the video: two halves sliding apart like doors, or for one player a burst
+function openLobby() {
+  lobbyEl.querySelector('.count').classList.remove('show');
+  const word = lobbyEl.querySelector('.go');
+  replay(word, 'show');
+  const duo = lobbyEl.classList.contains('duo');
+  if (!duo) {
+    replay(lobbyEl, 'leaving');
+    setTimeout(() => { lobbyEl.style.display = 'none'; lobbyEl.classList.remove('leaving'); }, 950);
+    return;
+  }
+  // Doors are copies of the lobby, each showing one half; the lobby itself goes at once
+  for (const side of ['left', 'right']) {
+    const door = lobbyEl.cloneNode(true);
+    door.removeAttribute('id');
+    door.className = 'door ' + side;
+    // The figures' gradients are found by id; the hidden lobby's own wouldn't draw, so each copy gets its own
+    door.querySelectorAll('[id]').forEach(e => {
+      const id = e.id;
+      e.id = id + '-' + side;
+      door.querySelectorAll(`[fill="url(#${id})"]`).forEach(f => f.setAttribute('fill', `url(#${e.id})`));
+    });
+    door.addEventListener('animationend', () => door.remove());
+    document.body.appendChild(door);
+  }
+  lobbyEl.style.display = 'none';
 }
 
 function player(side) { return game && game.players.find(p => p.side === side); }
