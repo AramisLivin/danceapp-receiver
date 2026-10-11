@@ -2,7 +2,7 @@
 let game = null;
 
 function resetOverlay() {
-  document.querySelectorAll('.popup, .presence, .join, .strip, .spark, .door, .shut, .finish').forEach(e => e.remove());
+  document.querySelectorAll('.popup, .presence, .join, .strip, .spark, .goword, .shut, .finish').forEach(e => e.remove());
   lobbyEl.style.display = 'none';
   scoresEl.innerHTML = '';
   scoresEl.style.display = 'none';
@@ -127,7 +127,6 @@ function showLobby(msg) {
     }
   }
   lobbyEl.querySelector('.count').textContent = '';
-  lobbyEl.querySelector('.go').classList.remove('show');
   lobbyEl.style.display = 'block';
   // Coming in: the hall fades up, the players' cards slide out from the middle to their halves
   replay(lobbyEl, 'enter');
@@ -164,32 +163,16 @@ function showCountdown(n) {
   replay(lobbyEl.querySelector('.flash'), 'show');
 }
 
-// The lobby opens onto the video: two halves sliding apart like doors, or for one player a burst
+// The lobby fades away onto the video under a big "Танцуем!"
 function openLobby() {
   lobbyEl.querySelector('.count').classList.remove('show');
-  const word = lobbyEl.querySelector('.go');
-  replay(word, 'show');
-  const duo = lobbyEl.classList.contains('duo');
-  if (!duo) {
-    replay(lobbyEl, 'leaving');
-    setTimeout(() => { lobbyEl.style.display = 'none'; lobbyEl.classList.remove('leaving'); }, 950);
-    return;
-  }
-  // Doors are copies of the lobby, each showing one half; the lobby itself goes at once
-  for (const side of ['left', 'right']) {
-    const door = lobbyEl.cloneNode(true);
-    door.removeAttribute('id');
-    door.className = 'door ' + side;
-    // The figures' gradients are found by id; the hidden lobby's own wouldn't draw, so each copy gets its own
-    door.querySelectorAll('[id]').forEach(e => {
-      const id = e.id;
-      e.id = id + '-' + side;
-      door.querySelectorAll(`[fill="url(#${id})"]`).forEach(f => f.setAttribute('fill', `url(#${e.id})`));
-    });
-    door.addEventListener('animationend', () => door.remove());
-    document.body.appendChild(door);
-  }
-  lobbyEl.style.display = 'none';
+  const word = document.createElement('div');
+  word.className = 'goword';
+  word.textContent = 'Танцуем!';
+  word.addEventListener('animationend', () => word.remove());
+  document.body.appendChild(word);
+  replay(lobbyEl, 'leaving');
+  setTimeout(() => { lobbyEl.style.display = 'none'; lobbyEl.classList.remove('leaving'); }, 850);
 }
 
 function player(side) { return game && game.players.find(p => p.side === side); }
@@ -251,7 +234,7 @@ function showJudgement(msg) {
 function showResults(msg) {
   // The round is over: only the results stay on screen
   game = null;
-  // The game's overlays go once the closing doors cover them
+  // The game's overlays go once the veil covers them
   setTimeout(() => {
     document.querySelectorAll('.popup, .presence, .join, .strip, .spark').forEach(e => e.remove());
     scoresEl.style.display = 'none';
@@ -300,24 +283,19 @@ function showResults(msg) {
   resultsEl.appendChild(buttons);
   resultsChoice = 0;
   renderResultsChoice();
-  // The finale first: doors close over the video, "Финиш!", then they fade onto the results
-  const colors = msg.players.length > 1 ? msg.players.map(r => r.color) : ['#FFD740', '#FFD740'];
-  const doors = ['left', 'right'].map((side, i) => {
-    const door = document.createElement('div');
-    door.className = 'shut ' + side;
-    door.style.setProperty('--c', colors[i] || colors[0]);
-    document.body.appendChild(door);
-    return door;
-  });
+  // The finale first: a dark veil over the video, "Финиш!", then it fades onto the results
+  const veil = document.createElement('div');
+  veil.className = 'shut';
+  document.body.appendChild(veil);
   const word = document.createElement('div');
   word.className = 'finish';
   word.textContent = 'Финиш!';
   document.body.appendChild(word);
   setTimeout(() => {
-    // Results go in under the doors, so their own animations start as the doors fade
+    // Results go in under the veil, so their own animations start as it fades
     resultsEl.style.display = 'flex';
-    [...doors, word].forEach(e => e.classList.add('gone'));
-    setTimeout(() => [...doors, word].forEach(e => e.remove()), 600);
+    [veil, word].forEach(e => e.classList.add('gone'));
+    setTimeout(() => [veil, word].forEach(e => e.remove()), 600);
   }, 1350);
 }
 

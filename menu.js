@@ -12,7 +12,7 @@ const previewEl = $('preview'), previewVideo = $('preview-video');
   const random = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
   const colors = ['#FF4081', '#00E5FF', '#FFD740', '#B388FF'];
   const disco = $('disco');
-  for (let i = 0; i < 18; i++) {
+  for (let i = 0; i < 12; i++) {
     const light = document.createElement('div');
     light.className = 'light';
     const r = 1.2 + random() * 5.5, c = colors[i % 4];
@@ -21,18 +21,13 @@ const previewEl = $('preview'), previewVideo = $('preview-video');
       `--period:${6 + random() * 4}s;--delay:${-random() * 8}s;--dx:${random() * 2 - 1}vw;--dy:${random() * 2 - 1}vw`;
     disco.appendChild(light);
   }
-  const ball = document.createElement('div');
-  ball.className = 'ball';
+  // The mirror ball's sparkles twinkle where they are: a sliding layer the width of two screens made the SHIELD stutter
   for (let i = 0; i < 30; i++) {
-    const x = random() * 100, y = random() * 100, period = 2 + random() * 4, delay = -random() * 5;
-    for (const copy of [0, 100]) {
-      const s = document.createElement('div');
-      s.className = 'sparkle';
-      s.style.cssText = `left:${(x + copy) / 2}%;top:${y}%;--period:${period}s;--delay:${delay}s`;
-      ball.appendChild(s);
-    }
+    const s = document.createElement('div');
+    s.className = 'sparkle';
+    s.style.cssText = `left:${random() * 100}%;top:${random() * 100}%;--period:${2 + random() * 4}s;--delay:${-random() * 5}s`;
+    disco.appendChild(s);
   }
-  disco.appendChild(ball);
 })();
 
 // ---------- Small pieces, as in the tablet's MenuParts ----------

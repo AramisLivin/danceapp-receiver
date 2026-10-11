@@ -8,19 +8,16 @@ video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: con
 #idle { position: absolute; inset: 0; overflow: hidden; background: #07060f; }
 #idle > header, #idle > section, #idle > footer, #status { position: absolute; }
 
-/* Disco hall: breathing lights and a turning mirror ball's sparkles, built by menu.js. Transform and opacity only */
+/* Disco hall: breathing lights and twinkling sparkles, built by menu.js. Opacity only: the SHIELD stutters
+   (and draws big layers stretched from a corner) when large elements move or scale */
 #disco { position: absolute; inset: 0; pointer-events: none; }
 .light { position: absolute; border-radius: 50%; animation: breathe var(--period) ease-in-out var(--delay) infinite alternate; }
-@keyframes breathe { from { transform: translate(0, 0) scale(.92); opacity: .5; }
-                     to { transform: translate(var(--dx), var(--dy)) scale(1.08); opacity: 1; } }
-/* Two copies of the sparkles side by side, sliding one screen left every 40 s: they wrap around seamlessly */
-.ball { position: absolute; left: 0; top: 0; width: 200vw; height: 100%; animation: turn 40s linear infinite; }
-@keyframes turn { to { transform: translateX(-100vw); } }
+@keyframes breathe { from { opacity: .45; } to { opacity: 1; } }
 .sparkle { position: absolute; width: 1.6vh; height: 1.6vh; margin: -.8vh 0 0 -.8vh; border-radius: 50%;
            background: radial-gradient(circle, #fff 0 12%, rgba(255,255,255,.45) 18%, transparent 60%);
            opacity: .25; animation: twinkle var(--period) linear var(--delay) infinite; }
-@keyframes twinkle { 0%, 70% { opacity: .25; transform: scale(1); } 82% { opacity: 1; transform: scale(2.6); } 94%, 100% { opacity: .25; transform: scale(1); } }
-@media (prefers-reduced-motion: reduce) { .light, .ball, .sparkle { animation: none; } }
+@keyframes twinkle { 0%, 70% { opacity: .2; } 82% { opacity: 1; } 94%, 100% { opacity: .2; } }
+@media (prefers-reduced-motion: reduce) { .light, .sparkle { animation: none; } }
 
 header { left: 6vh; right: 6vh; top: 3.5vh; height: 7vh; display: flex; align-items: center; gap: 2.5vh; }
 .logo { font-size: 5vh; font-weight: 900; margin: 0; background: linear-gradient(90deg, var(--cyan), #b388ff 45%, var(--pink));
@@ -75,10 +72,10 @@ header .title { font-size: 5vh; font-weight: 900; margin: 0; }
           box-shadow: var(--shadow); }
 .poster.focus { opacity: 1; transform: scale(1.04); }
 /* Starting a song: the chosen poster swells and fades, the others fly off */
-.poster.chosen { transition: transform .5s cubic-bezier(.4, 0, .2, 1), opacity .3s .25s; transform: scale(2.6); opacity: 0; }
-.poster.gone-left, .poster.gone-right { transition: transform .45s cubic-bezier(.4, 0, 1, 1), opacity .45s; opacity: 0; }
-.poster.gone-left { transform: translateX(-70vw); }
-.poster.gone-right { transform: translateX(70vw); }
+.poster.chosen { transition: transform .45s cubic-bezier(.2, 1, .4, 1), opacity .3s .3s; transform: scale(1.1); opacity: 0; }
+.poster.gone-left, .poster.gone-right { transition: transform .35s, opacity .35s; opacity: 0; }
+.poster.gone-left { transform: translateX(-6vw); }
+.poster.gone-right { transform: translateX(6vw); }
 .poster .figure { position: absolute; left: 1vh; right: 1vh; top: 3vh; height: 39.5vh; }
 .poster .words { position: absolute; left: 3.5vh; right: 3.5vh; bottom: 3.5vh; }
 .poster .words b { display: block; font-size: 5.5vh; font-weight: 900; }
@@ -126,10 +123,10 @@ footer.hint { left: 6vh; bottom: 3vh; display: flex; gap: 3vh; font-size: 2.1vh;
 
 /* ---------- Lobby ---------- */
 #lobby { position: absolute; inset: 0; display: none; background: radial-gradient(ellipse at 50% 110%, #2a0f4a, #07060f 65%); text-align: center; }
-#lobby h1, .door h1 { font-size: 5vh; font-weight: 900; margin: 4vh 0 0; }
-#lobby > p, .door > p { font-size: 2.4vh; margin: .8vh 0 0; color: rgba(255,255,255,.75); }
-#lobby .places, .door .places { position: absolute; left: 4vw; right: 4vw; top: 15vh; bottom: 9vh; display: flex; justify-content: center; gap: 4vw; }
-#lobby.duo .places::after, .door .places::after { content: ''; position: absolute; left: 50%; top: 2vh; bottom: 2vh; border-left: .3vh dashed rgba(255,255,255,.3); }
+#lobby h1 { font-size: 5vh; font-weight: 900; margin: 4vh 0 0; }
+#lobby > p { font-size: 2.4vh; margin: .8vh 0 0; color: rgba(255,255,255,.75); }
+#lobby .places { position: absolute; left: 4vw; right: 4vw; top: 15vh; bottom: 9vh; display: flex; justify-content: center; gap: 4vw; }
+#lobby.duo .places::after { content: ''; position: absolute; left: 50%; top: 2vh; bottom: 2vh; border-left: .3vh dashed rgba(255,255,255,.3); }
 .place { position: relative; flex: 0 1 44vw; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
 .place .live { position: relative; flex: 1; width: 100%; }
 .place .live svg { position: absolute; left: 50%; top: 0; height: 100%; width: auto; aspect-ratio: 1; transform: translateX(-50%); }
@@ -145,7 +142,7 @@ footer.hint { left: 6vh; bottom: 3vh; display: flex; gap: 3vh; font-size: 2.1vh;
 .place .status { font-size: 3vh; font-weight: 900; margin-top: .5vh; white-space: nowrap; }
 .place.ready .status { color: var(--c); }
 .place:not(.here):not(.ready) .ring { opacity: .35; }
-#lobby .count, .door .count { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font-size: 30vh; font-weight: 900; opacity: 0;
+#lobby .count { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font-size: 30vh; font-weight: 900; opacity: 0;
                 background: linear-gradient(90deg, var(--cyan), #b388ff 45%, var(--pink)); -webkit-background-clip: text; color: transparent; }
 #lobby .count.show { animation: count 1s ease-out forwards; }
 @keyframes count { 0% { transform: translate(-50%, -50%) scale(2.2); opacity: 0; } 30% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
@@ -153,42 +150,33 @@ footer.hint { left: 6vh; bottom: 3vh; display: flex; gap: 3vh; font-size: 2.1vh;
 /* Coming in from the poster; everything here animates only transform and opacity, for the SHIELD */
 #lobby.enter { animation: fadein .5s ease-out; }
 #lobby.enter h1, #lobby.enter > p { animation: drop .6s cubic-bezier(.2, 1, .4, 1); }
-#lobby.enter .place:first-child { animation: fromcenter-l .65s cubic-bezier(.2, 1, .4, 1); }
-#lobby.enter .place:last-child { animation: fromcenter-r .65s cubic-bezier(.2, 1, .4, 1); }
-#lobby:not(.duo).enter .place { animation: grow .65s cubic-bezier(.2, 1, .4, 1); }
+#lobby.enter .place:first-child .card { animation: fromcenter-l .65s cubic-bezier(.2, 1, .4, 1); }
+#lobby.enter .place:last-child .card { animation: fromcenter-r .65s cubic-bezier(.2, 1, .4, 1); }
+#lobby:not(.duo).enter .place .card { animation: grow .65s cubic-bezier(.2, 1, .4, 1); }
 @keyframes fadein { from { opacity: 0; } }
 @keyframes drop { from { transform: translateY(-4vh); opacity: 0; } }
-@keyframes fromcenter-l { from { transform: translateX(24vw) scale(.6); opacity: 0; } }
-@keyframes fromcenter-r { from { transform: translateX(-24vw) scale(.6); opacity: 0; } }
-@keyframes grow { from { transform: scale(.6); opacity: 0; } }
+@keyframes fromcenter-l { from { transform: translateX(12vw); opacity: 0; } }
+@keyframes fromcenter-r { from { transform: translateX(-12vw); opacity: 0; } }
+@keyframes grow { from { transform: translateY(4vh); opacity: 0; } }
 
 /* Countdown beats: a ring rippling out and a flash of the hall in the number's color */
-#lobby .ripple { position: absolute; left: 50%; top: 50%; width: 40vh; height: 40vh; margin: -20vh 0 0 -20vh; border-radius: 50%;
-                 border: 1vh solid var(--beat); opacity: 0; }
+#lobby .ripple { position: absolute; left: 50%; top: 50%; width: 60vh; height: 60vh; margin: -30vh 0 0 -30vh; border-radius: 50%;
+                 border: .8vh solid var(--beat); opacity: 0; }
 #lobby .ripple.show { animation: ripple .9s ease-out forwards; }
-@keyframes ripple { from { transform: scale(.5); opacity: 1; } to { transform: scale(2.6); opacity: 0; } }
+@keyframes ripple { from { transform: scale(.4); opacity: 1; } to { transform: scale(1); opacity: 0; } }
 #lobby .flash { position: absolute; inset: 0; opacity: 0; background: radial-gradient(circle, var(--beat), transparent 60%); }
 #lobby .flash.show { animation: flash2 .9s ease-out forwards; }
 @keyframes flash2 { from { opacity: .35; } to { opacity: 0; } }
-#lobby .go, .door .go { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); white-space: nowrap; font-size: 20vh; font-weight: 900; opacity: 0;
-             background: linear-gradient(90deg, var(--cyan), #b388ff 45%, var(--pink)); -webkit-background-clip: text; color: transparent; }
-#lobby .go.show, .door .go.show { animation: goword .9s cubic-bezier(.2, 1.3, .4, 1) forwards; }
 @keyframes goword { 0% { transform: translate(-50%, -50%) scale(.5); opacity: 0; } 35% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
                     70% { opacity: 1; } 100% { transform: translate(-50%, -50%) scale(1.05); opacity: 0; } }
-/* One player: the lobby bursts away */
-#lobby.leaving { animation: fadeout .9s ease-in forwards; }
-#lobby.leaving .places { animation: burst .9s ease-in forwards; }
+/* Song start: the lobby fades away under "Танцуем!", which lives outside it */
+#lobby.leaving { animation: fadeout .8s ease-in forwards; }
 @keyframes fadeout { to { opacity: 0; } }
-@keyframes burst { to { transform: scale(1.3); } }
+.goword { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); white-space: nowrap; font-size: 20vh; font-weight: 900; opacity: 0;
+          background: linear-gradient(90deg, var(--cyan), #b388ff 45%, var(--pink)); -webkit-background-clip: text; color: transparent;
+          animation: goword 1.1s cubic-bezier(.2, 1.3, .4, 1) forwards; }
 
-/* Two players: copies of the lobby, one half each, sliding apart onto the video */
-.door { position: absolute; inset: 0; display: block; text-align: center; background: radial-gradient(ellipse at 50% 110%, #2a0f4a, #07060f 65%); }
-.door.left { clip-path: inset(0 50% 0 0); animation: door-l .9s cubic-bezier(.65, 0, .35, 1) forwards; }
-.door.right { clip-path: inset(0 0 0 50%); animation: door-r .9s cubic-bezier(.65, 0, .35, 1) forwards; }
-@keyframes door-l { to { transform: translateX(-50vw); } }
-@keyframes door-r { to { transform: translateX(50vw); } }
-
-#lobby .hint, .door .hint { position: absolute; left: 6vh; bottom: 3vh; font-size: 2.1vh; color: rgba(255,255,255,.55); }
+#lobby .hint { position: absolute; left: 6vh; bottom: 3vh; font-size: 2.1vh; color: rgba(255,255,255,.55); }
 .scorecard.bump .points { animation: bump .35s ease-out; }
 @keyframes bump { 30% { transform: scale(1.18); } }
 
@@ -249,12 +237,10 @@ footer.hint { left: 6vh; bottom: 3vh; display: flex; gap: 3vh; font-size: 2.1vh;
                  animation: blink 1.2s ease-in-out infinite; }
 @keyframes blink { 50% { border-color: transparent; } }
 
-/* ---------- End of a song: doors close, "Финиш!", then they fade onto the results ---------- */
-.shut { position: absolute; top: 0; bottom: 0; width: 50%; background: #07060f; animation: .55s cubic-bezier(.2, .8, .3, 1) forwards; transition: opacity .55s; }
-.shut.left { left: 0; animation-name: shut-l; background: linear-gradient(90deg, #07060f 86%, var(--c)); }
-.shut.right { right: 0; animation-name: shut-r; background: linear-gradient(270deg, #07060f 86%, var(--c)); }
-@keyframes shut-l { from { transform: translateX(-100%); } }
-@keyframes shut-r { from { transform: translateX(100%); } }
+/* ---------- End of a song: a dark veil, "Финиш!", then it fades onto the results ---------- */
+.shut { position: absolute; inset: 0; opacity: 0; animation: fadein-veil .5s ease-out forwards; transition: opacity .55s;
+        background: radial-gradient(ellipse at 50% 50%, rgba(42, 15, 74, .92), rgba(7, 6, 15, .98) 70%); }
+@keyframes fadein-veil { to { opacity: 1; } }
 .finish { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); white-space: nowrap; font-size: 20vh; font-weight: 900; opacity: 0;
           background: linear-gradient(90deg, var(--cyan), #b388ff 45%, var(--pink)); -webkit-background-clip: text; color: transparent;
           animation: goword 1.6s .45s cubic-bezier(.2, 1.3, .4, 1) forwards; transition: opacity .4s; }
@@ -280,10 +266,9 @@ footer.hint { left: 6vh; bottom: 3vh; display: flex; gap: 3vh; font-size: 2.1vh;
 #results .chip b { color: var(--c); }
 #results .extra { font-size: 2.6vh; opacity: .75; }
 #results .buttons { display: flex; gap: 3vw; margin-top: 2vh; }
-#results .button { font-size: 3.4vh; font-weight: 700; padding: 1.5vh 3.5vw; border-radius: 5vh; border: .4vh solid rgba(255,255,255,.35);
-                   transition: transform .15s, background .15s; }
-#results .button.selected { background: linear-gradient(90deg, var(--cyan), var(--pink)) border-box; border-color: transparent; transform: scale(1.08);
-                            box-shadow: 0 0 3vh rgba(255, 64, 129, .5); }
+/* No scaling or blurred glow: the SHIELD draws those with visible edges */
+#results .button { font-size: 3.4vh; font-weight: 700; padding: 1.5vh 3.5vw; border-radius: 5vh; border: .4vh solid rgba(255,255,255,.35); }
+#results .button.selected { background: linear-gradient(90deg, var(--cyan), var(--pink)); border-color: #fff; }
 
 #caption { position: absolute; left: 0; right: 0; bottom: 8vh; text-align: center; font-size: 5vh; font-weight: 700;
            text-shadow: 0 .4vh 1.2vh #000; display: none; }
