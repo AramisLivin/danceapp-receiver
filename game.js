@@ -353,7 +353,9 @@ const LIVE_FROM = 0.45, LIVE_FULL = 0.8;
 function draw() {
   // In the lobby the video waits at the start: nothing moves yet
   if (!game || game.lobby) return;
-  const now = video.currentTime * 1000 - game.cueDelayMs;
+  // Only forwards: when the video ends the TV resets its time to zero before the results arrive, which would
+  // bring the song's first cue back up the strip
+  const now = game.now = Math.max(game.now || -Infinity, video.currentTime * 1000 - game.cueDelayMs);
   const duration = game.durationMs || (video.duration * 1000) || 0;
   if (duration > 0) progressEl.firstChild.style.width = Math.min(100, 100 * now / duration) + '%';
   const cue = innerHeight * 0.17;

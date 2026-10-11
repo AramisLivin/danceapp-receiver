@@ -173,7 +173,8 @@ function playPreview(song) {
   previewVideo.dataset.start = song.preview.startMs / 1000;
   previewVideo.dataset.end = song.preview.endMs / 1000;
   previewVideo.src = song.preview.url + '#t=' + song.preview.startMs / 1000;
-  previewVideo.play().catch(e => report({ type: 'error', where: 'preview', error: String(e) }));
+  // Interrupted by moving on to another song is normal; anything else is worth knowing
+  previewVideo.play().catch(e => { if (e.name !== 'AbortError') report({ type: 'error', where: 'preview', error: String(e) }); });
 }
 
 function stopPreview() {
