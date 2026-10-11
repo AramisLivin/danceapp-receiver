@@ -2,7 +2,8 @@
 let game = null;
 
 function resetOverlay() {
-  document.querySelectorAll('.popup, .presence, .strip, .spark').forEach(e => e.remove());
+  document.querySelectorAll('.popup, .presence, .join, .strip, .spark').forEach(e => e.remove());
+  lobbyEl.style.display = 'none';
   scoresEl.innerHTML = '';
   scoresEl.style.display = 'none';
   progressEl.style.display = 'none';
@@ -33,17 +34,121 @@ function startLevel(msg) {
       presence.innerHTML = '<span></span>';
       presence.querySelector('span').textContent = solo ? 'Встаньте в кадр' : p.label + ': встаньте в кадр';
       document.body.appendChild(presence);
-      return { ...p, solo, color, judged: {}, cardEl: card, popupEl: popup, presenceEl: presence };
+      // A dropped-out player's way back in: raise a hand
+      const join = document.createElement('div');
+      join.className = 'join ' + p.side.toLowerCase();
+      join.style.setProperty('--c', p.color);
+      join.innerHTML = '<div class="ring"><span>✋</span></div><div><b>Поднимите руку,</b><br>чтобы танцевать вдвоём</div>';
+      document.body.appendChild(join);
+      // With a lobby, nobody dances until they've raised a hand there
+      return { ...p, solo, color, active: !msg.lobby, judged: {}, cardEl: card, popupEl: popup, presenceEl: presence, joinEl: join };
     }),
+    title: msg.title || '',
+    lobby: !!msg.lobby,
   };
   game.players.forEach(p => buildCues(p, msg.aspectRatio));
+  idle.style.display = 'none';
+  if (game.lobby) showLobby(msg); else go();
+}
+
+// The song starts: the lobby gives way to the game
+function go() {
+  if (!game) return;
+  game.lobby = false;
+  lobbyEl.style.display = 'none';
   scoresEl.style.display = 'flex';
   progressEl.style.display = 'block';
-  idle.style.display = 'none';
-
-  intro.querySelector('h1').textContent = msg.title || '';
-  intro.querySelector('p').textContent = solo ? '' : msg.players.map(p => p.label).join('   ·   ');
+  layout();
+  const dancing = game.players.filter(p => p.active);
+  intro.querySelector('h1').textContent = game.title;
+  intro.querySelector('p').textContent = dancing.length > 1 ? dancing.map(p => p.label).join('   ·   ') : '';
   replay(intro, 'show');
+}
+
+// Dancing players, or everyone when nobody is in: what the screen is laid out for
+function dancing() { return game.players.filter(p => p.active).length ? game.players.filter(p => p.active) : game.players; }
+
+// Two players down to one: the other's card folds away and their cues go; back to two, they return
+function layout() {
+  const shown = dancing();
+  for (const p of game.players) {
+    const on = shown.includes(p);
+    p.cardEl.classList.toggle('away', !on);
+    p.stripEl.style.opacity = on ? '1' : '0';
+  }
+}
+
+// From the tablet ten times a second while playing: who's in, and anyone raising a hand to join
+function updateRoster(msg) {
+  if (!game || game.lobby) return;
+  let changed = false;
+  const anyone = msg.players.some(s => s.active);
+  for (const s of msg.players) {
+    const p = player(s.side);
+    if (!p) continue;
+    if (p.active !== s.active) { p.active = s.active; changed = true; }
+    // "Stand in frame" is for someone dancing who has gone out of view
+    p.presenceEl.style.display = s.active && !s.inView ? 'block' : 'none';
+    const joining = !p.solo && !s.active && s.inView && anyone;
+    p.joinEl.classList.toggle('show', joining);
+    if (joining) p.joinEl.style.setProperty('--p', s.progress);
+  }
+  if (changed) layout();
+}
+
+// ---------- Lobby: players take their places and raise a hand; the tablet counts down and says go ----------
+const lobbyEl = $('lobby');
+
+function showLobby(msg) {
+  const solo = msg.players.length === 1;
+  lobbyEl.querySelector('h1').textContent = msg.title || '';
+  lobbyEl.querySelector('p').textContent = solo ? 'Встаньте в кадр и поднимите руку' : 'Встаньте каждый на свою половину и поднимите руку';
+  lobbyEl.classList.toggle('duo', !solo);
+  const places = lobbyEl.querySelector('.places');
+  places.innerHTML = '';
+  for (const p of game.players) {
+    const place = document.createElement('div');
+    place.className = 'place';
+    place.style.setProperty('--c', p.color);
+    place.innerHTML = '<div class="live"></div><div class="card"><div class="dancer"></div><div class="words">' +
+      (solo ? '' : '<b class="who"></b>') + '<span class="follow"></span><strong class="status">Встаньте сюда</strong></div>' +
+      '<div class="ring"><span>✋</span></div></div>';
+    if (!solo) place.querySelector('.who').textContent = p.side === 'LEFT' ? 'Игрок слева' : 'Игрок справа';
+    place.querySelector('.follow').textContent = 'за танцора ' + (p.dancer || '').toLowerCase();
+    places.appendChild(place);
+    p.placeEl = place;
+    if (p.poster) {
+      const svg = figureSvg(p.poster.p, p.poster.f, msg.aspectRatio, p.tint || TINTS.solo, 'lobby-dancer-' + p.side);
+      place.querySelector('.dancer').appendChild(svg);
+    }
+  }
+  lobbyEl.querySelector('.count').textContent = '';
+  lobbyEl.style.display = 'block';
+}
+
+function updateLobby(msg) {
+  if (!game || !game.lobby) return;
+  for (const s of msg.players) {
+    const p = player(s.side);
+    if (!p || !p.placeEl) continue;
+    p.active = s.active;
+    const place = p.placeEl;
+    place.classList.toggle('ready', s.active);
+    place.classList.toggle('here', s.inView);
+    place.querySelector('.status').textContent = s.active ? 'Готов!' : s.inView ? 'Поднимите руку' : 'Встаньте сюда';
+    place.style.setProperty('--p', s.active ? 1 : s.progress);
+    // The player's own figure, live: rebuilt each update, a dozen shapes
+    const live = place.querySelector('.live');
+    live.innerHTML = '';
+    if (s.pose) live.appendChild(figureSvg(s.pose.p, s.pose.f, msg.aspectRatio, p.tint || TINTS.solo, 'lobby-live-' + p.side));
+  }
+}
+
+function showCountdown(n) {
+  if (!game || !game.lobby) return;
+  const count = lobbyEl.querySelector('.count');
+  count.textContent = n;
+  replay(count, 'show');
 }
 
 function player(side) { return game && game.players.find(p => p.side === side); }
@@ -88,7 +193,9 @@ function showJudgement(msg) {
   replay(p.targetEl, 'flash');
 
   if (msg.judgement === 'PERFECT') burst(p, color);
-  if (combo > 0 && combo % COMBO_MILESTONE === 0 && !p.solo) {
+  // Two dancing celebrate on their own cards; one alone gets the big flash
+  const together = dancing().length > 1;
+  if (combo > 0 && combo % COMBO_MILESTONE === 0 && together) {
     p.cardEl.querySelector('.badge').textContent = 'COMBO ' + combo + '!';
     replay(p.cardEl, 'milestone');
   } else if (combo > 0 && combo % COMBO_MILESTONE === 0) {
@@ -103,7 +210,8 @@ function showJudgement(msg) {
 function showResults(msg) {
   // The round is over: only the results stay on screen
   game = null;
-  document.querySelectorAll('.popup, .presence, .strip, .spark').forEach(e => e.remove());
+  document.querySelectorAll('.popup, .presence, .join, .strip, .spark').forEach(e => e.remove());
+  lobbyEl.style.display = 'none';
   scoresEl.style.display = 'none';
   progressEl.style.display = 'none';
   const solo = msg.players.length === 1;
@@ -189,6 +297,7 @@ function buildCues(p, aspect) {
   }
   document.body.appendChild(strip);
   p.targetEl = target;
+  p.stripEl = strip;
 }
 
 let reportedDraw = false;
@@ -198,7 +307,8 @@ function frame() {
 }
 
 function draw() {
-  if (!game) return;
+  // In the lobby the video waits at the start: nothing moves yet
+  if (!game || game.lobby) return;
   const now = video.currentTime * 1000;
   const duration = game.durationMs || (video.duration * 1000) || 0;
   if (duration > 0) progressEl.firstChild.style.width = Math.min(100, 100 * now / duration) + '%';

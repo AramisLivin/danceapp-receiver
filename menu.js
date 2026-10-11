@@ -215,6 +215,8 @@ function onKey(key) {
     }
     return;
   }
+  // In the lobby, OK starts the song with whoever is in view
+  if (game && game.lobby) { if (key === 'Enter') report({ type: 'go' }); return; }
   if (game || !menu || !menu.songs.length || idle.style.display === 'none') return;
   const n = menu.songs.length;
   if (menu.screen === 'list') {

@@ -7,7 +7,10 @@ context.addCustomMessageListener(NAMESPACE, event => {
   switch (msg.type) {
     case 'level': stopPreview(); startLevel(msg); break;
     case 'judgement': showJudgement(msg); break;
-    case 'presence': { const p = player(msg.side); if (p) p.presenceEl.style.display = msg.inView ? 'none' : 'block'; break; }
+    case 'lobby': updateLobby(msg); break;
+    case 'countdown': showCountdown(msg.n); break;
+    case 'go': go(); break;
+    case 'roster': updateRoster(msg); break;
     case 'results': showResults(msg); break;
     case 'clear': clearGame(); resumeMenu(); break;
     case 'calibration': stopPreview(); showCaption(msg.text); break;
