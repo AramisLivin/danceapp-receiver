@@ -117,7 +117,9 @@ footer.hint { left: 6vh; bottom: 3vh; display: flex; gap: 3vh; font-size: 2.1vh;
 .join b { color: #fff; font-size: 2.6vh; }
 .join.left { left: 14vw; } .join.right { right: 14vw; }
 .join.show { display: flex; }
-.ring { width: 7vh; height: 7vh; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex: none;
+/* Registered so it can be animated: the tablet sends progress ten times a second, the ring glides between */
+@property --p { syntax: '<number>'; inherits: true; initial-value: 0; }
+.ring { transition: --p .12s linear; width: 7vh; height: 7vh; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex: none;
         background: conic-gradient(var(--c) calc(var(--p, 0) * 360deg), rgba(255,255,255,.18) 0); }
 .ring span { width: 82%; height: 82%; border-radius: 50%; background: #120d22; display: flex; align-items: center; justify-content: center; font-size: 3vh; }
 

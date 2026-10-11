@@ -19,7 +19,7 @@ context.addCustomMessageListener(NAMESPACE, event => {
 });
 
 context.addEventListener(cast.framework.system.EventType.SENDER_CONNECTED, () => {
-  report({ type: 'hello', screen: innerWidth + 'x' + innerHeight, dpr: devicePixelRatio, ua: navigator.userAgent });
+  report({ type: 'hello', version: VERSION, screen: innerWidth + 'x' + innerHeight, dpr: devicePixelRatio, ua: navigator.userAgent });
 });
 playerManager.addEventListener(cast.framework.events.EventType.ERROR, e => {
   report({ type: 'error', detailedErrorCode: e.detailedErrorCode, error: String(e.error && (e.error.message || e.error)) });
