@@ -331,8 +331,9 @@ function buildCues(p, aspect) {
     c.el = document.createElement('div');
     c.el.className = 'cue';
     const key = p.solo ? 'solo' : p.side;
-    // Each figure carries its own gradient; ids are unique per player, and identical ones may be shared
-    c.el.appendChild(figureSvg(c.p, c.f, aspect, TINTS[key], 'skin-' + key));
+    // Each figure carries its own gradient under its own id: a shared id resolves to the first cue's, and once
+    // that cue is hidden (display: none) its gradient stops drawing and every later figure goes dark
+    c.el.appendChild(figureSvg(c.p, c.f, aspect, TINTS[key], 'skin-' + key + '-' + c.t));
     strip.appendChild(c.el);
   }
   document.body.appendChild(strip);
