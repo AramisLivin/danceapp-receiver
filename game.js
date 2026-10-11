@@ -49,6 +49,8 @@ function startLevel(msg) {
     cueDelayMs: msg.cueDelayMs || 0,
   };
   game.players.forEach(p => buildCues(p, msg.aspectRatio));
+  // After the lobby's entrance, so the two don't compete for the same frames
+  setTimeout(() => buildFigures(game), msg.lobby ? 700 : 0);
   idle.style.display = 'none';
   if (game.lobby) showLobby(msg); else go();
 }
@@ -128,6 +130,7 @@ function showLobby(msg) {
   }
   lobbyEl.querySelector('.count').textContent = '';
   lobbyEl.style.display = 'block';
+  game.lobbyShownAt = performance.now();
   // Coming in: the hall fades up, the players' cards slide out from the middle to their halves
   replay(lobbyEl, 'enter');
 }
@@ -141,9 +144,14 @@ function updateLobby(msg) {
     const place = p.placeEl;
     place.classList.toggle('ready', s.active);
     place.classList.toggle('here', s.inView);
-    place.querySelector('.status').textContent = s.active ? 'Готов!' : s.inView ? 'Поднимите руку' : 'Встаньте сюда';
+    const status = s.active ? 'Готов!' : s.inView ? 'Поднимите руку' : 'Встаньте сюда';
+    const statusEl = place.querySelector('.status');
+    if (statusEl.textContent !== status) statusEl.textContent = status;
     place.style.setProperty('--p', s.active ? 1 : s.progress);
-    // The player's own figure, live: rebuilt each update, a dozen shapes
+    // The player's own figure, live: rebuilt five times a second at most, and not while the lobby comes in
+    const now = performance.now();
+    if (now - game.lobbyShownAt < 700 || now - (p.liveAt || 0) < 200) continue;
+    p.liveAt = now;
     const live = place.querySelector('.live');
     live.innerHTML = '';
     if (s.pose) live.appendChild(figureSvg(s.pose.p, s.pose.f, msg.aspectRatio, p.tint || TINTS.solo, 'lobby-live-' + p.side));
@@ -327,18 +335,35 @@ function buildCues(p, aspect) {
   const target = document.createElement('div');
   target.className = 'target';
   strip.appendChild(target);
+  // Cards now, figures a few at a time (buildFigures): a whole song's at once froze the TV for a quarter second
   for (const c of p.cues) {
     c.el = document.createElement('div');
     c.el.className = 'cue';
-    const key = p.solo ? 'solo' : p.side;
-    // Each figure carries its own gradient under its own id: a shared id resolves to the first cue's, and once
-    // that cue is hidden (display: none) its gradient stops drawing and every later figure goes dark
-    c.el.appendChild(figureSvg(c.p, c.f, aspect, TINTS[key], 'skin-' + key + '-' + c.t));
     strip.appendChild(c.el);
   }
+  p.aspect = aspect;
   document.body.appendChild(strip);
   p.targetEl = target;
   p.stripEl = strip;
+}
+
+function buildFigure(p, c) {
+  if (c.built) return;
+  c.built = true;
+  const key = p.solo ? 'solo' : p.side;
+  // Each figure carries its own gradient under its own id: a shared id resolves to the first cue's, and once
+  // that cue is hidden (display: none) its gradient stops drawing and every later figure goes dark
+  c.el.appendChild(figureSvg(c.p, c.f, p.aspect, TINTS[key], 'skin-' + key + '-' + c.t));
+}
+
+// Builds the round's cue figures in song order, a handful per tick, while the players get ready in the lobby
+function buildFigures(round) {
+  const queue = round.players.flatMap(p => p.cues.map(c => [p, c])).sort((a, b) => a[1].t - b[1].t);
+  (function next() {
+    if (game !== round) return;
+    for (let i = 0; i < 4 && queue.length; i++) { const [p, c] = queue.shift(); buildFigure(p, c); }
+    if (queue.length) setTimeout(next, 40);
+  })();
 }
 
 let reportedDraw = false;
@@ -390,7 +415,7 @@ function draw() {
       // Cues grow a little as they near the target, as if coming at the player
       const grow = dt > 0 ? 0.85 + 0.15 * (1 - dt / LEAD_MS) : 1;
       const style = c.el.style;
-      if (!c.shown) { style.display = 'block'; c.shown = true; }
+      if (!c.shown) { buildFigure(p, c); style.display = 'block'; c.shown = true; }
       style.transform = `translate3d(0, ${(dt * pxPerMs).toFixed(1)}px, 0) scale(${grow.toFixed(3)})`;
       style.opacity = dt < 0 ? 1 + dt / LINGER_MS : 1;
       // Once judged, the card's ring takes the judgement's color; before that it glows gold as the player's
