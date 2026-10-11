@@ -249,6 +249,17 @@ footer.hint { left: 6vh; bottom: 3vh; display: flex; gap: 3vh; font-size: 2.1vh;
                  animation: blink 1.2s ease-in-out infinite; }
 @keyframes blink { 50% { border-color: transparent; } }
 
+/* ---------- End of a song: doors close, "Финиш!", then they fade onto the results ---------- */
+.shut { position: absolute; top: 0; bottom: 0; width: 50%; background: #07060f; animation: .55s cubic-bezier(.2, .8, .3, 1) forwards; transition: opacity .55s; }
+.shut.left { left: 0; animation-name: shut-l; background: linear-gradient(90deg, #07060f 86%, var(--c)); }
+.shut.right { right: 0; animation-name: shut-r; background: linear-gradient(270deg, #07060f 86%, var(--c)); }
+@keyframes shut-l { from { transform: translateX(-100%); } }
+@keyframes shut-r { from { transform: translateX(100%); } }
+.finish { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); white-space: nowrap; font-size: 20vh; font-weight: 900; opacity: 0;
+          background: linear-gradient(90deg, var(--cyan), #b388ff 45%, var(--pink)); -webkit-background-clip: text; color: transparent;
+          animation: goword 1.6s .45s cubic-bezier(.2, 1.3, .4, 1) forwards; transition: opacity .4s; }
+.shut.gone, .finish.gone { opacity: 0; }
+
 /* ---------- Results ---------- */
 #results { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 3vh;
            background: radial-gradient(ellipse at 50% 30%, rgba(42, 15, 74, .93), rgba(5, 4, 12, .96)); }

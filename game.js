@@ -2,7 +2,7 @@
 let game = null;
 
 function resetOverlay() {
-  document.querySelectorAll('.popup, .presence, .join, .strip, .spark, .door').forEach(e => e.remove());
+  document.querySelectorAll('.popup, .presence, .join, .strip, .spark, .door, .shut, .finish').forEach(e => e.remove());
   lobbyEl.style.display = 'none';
   scoresEl.innerHTML = '';
   scoresEl.style.display = 'none';
@@ -251,10 +251,13 @@ function showJudgement(msg) {
 function showResults(msg) {
   // The round is over: only the results stay on screen
   game = null;
-  document.querySelectorAll('.popup, .presence, .join, .strip, .spark').forEach(e => e.remove());
+  // The game's overlays go once the closing doors cover them
+  setTimeout(() => {
+    document.querySelectorAll('.popup, .presence, .join, .strip, .spark').forEach(e => e.remove());
+    scoresEl.style.display = 'none';
+    progressEl.style.display = 'none';
+  }, 550);
   lobbyEl.style.display = 'none';
-  scoresEl.style.display = 'none';
-  progressEl.style.display = 'none';
   const solo = msg.players.length === 1;
   const best = Math.max(...msg.players.map(r => r.points));
   const winners = msg.players.filter(r => r.points === best).length;
@@ -297,7 +300,25 @@ function showResults(msg) {
   resultsEl.appendChild(buttons);
   resultsChoice = 0;
   renderResultsChoice();
-  resultsEl.style.display = 'flex';
+  // The finale first: doors close over the video, "Финиш!", then they fade onto the results
+  const colors = msg.players.length > 1 ? msg.players.map(r => r.color) : ['#FFD740', '#FFD740'];
+  const doors = ['left', 'right'].map((side, i) => {
+    const door = document.createElement('div');
+    door.className = 'shut ' + side;
+    door.style.setProperty('--c', colors[i] || colors[0]);
+    document.body.appendChild(door);
+    return door;
+  });
+  const word = document.createElement('div');
+  word.className = 'finish';
+  word.textContent = 'Финиш!';
+  document.body.appendChild(word);
+  setTimeout(() => {
+    // Results go in under the doors, so their own animations start as the doors fade
+    resultsEl.style.display = 'flex';
+    [...doors, word].forEach(e => e.classList.add('gone'));
+    setTimeout(() => [...doors, word].forEach(e => e.remove()), 600);
+  }, 1350);
 }
 
 let resultsChoice = 0;
