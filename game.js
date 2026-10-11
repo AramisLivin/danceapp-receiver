@@ -45,6 +45,8 @@ function startLevel(msg) {
     }),
     title: msg.title || '',
     lobby: !!msg.lobby,
+    // This TV shows the picture about this much after its clock says: cues follow the picture, not the clock
+    cueDelayMs: msg.cueDelayMs || 0,
   };
   game.players.forEach(p => buildCues(p, msg.aspectRatio));
   idle.style.display = 'none';
@@ -87,6 +89,7 @@ function updateRoster(msg) {
     const p = player(s.side);
     if (!p) continue;
     if (p.active !== s.active) { p.active = s.active; changed = true; }
+    p.live = s.live || null;
     // "Stand in frame" is for someone dancing who has gone out of view
     p.presenceEl.style.display = s.active && !s.inView ? 'block' : 'none';
     const joining = !p.solo && !s.active && s.inView && anyone;
@@ -306,10 +309,13 @@ function frame() {
   requestAnimationFrame(frame);
 }
 
+// Live match at which a cue starts to glow, and where it's fully lit (about OK and Perfect); as on the tablet
+const LIVE_FROM = 0.45, LIVE_FULL = 0.8;
+
 function draw() {
   // In the lobby the video waits at the start: nothing moves yet
   if (!game || game.lobby) return;
-  const now = video.currentTime * 1000;
+  const now = video.currentTime * 1000 - game.cueDelayMs;
   const duration = game.durationMs || (video.duration * 1000) || 0;
   if (duration > 0) progressEl.firstChild.style.width = Math.min(100, 100 * now / duration) + '%';
   const cue = innerHeight * 0.17;
@@ -347,9 +353,15 @@ function draw() {
       if (!c.shown) { style.display = 'block'; c.shown = true; }
       style.transform = `translate3d(0, ${(dt * pxPerMs).toFixed(1)}px, 0) scale(${grow.toFixed(3)})`;
       style.opacity = dt < 0 ? 1 + dt / LINGER_MS : 1;
-      // Once judged, the card's ring takes the judgement's color
-      const ring = judged ? COLORS[judged] : null;
-      if (c.ring !== ring) { style.boxShadow = ring ? `inset 0 0 0 .5vh ${ring}, 0 0 2.5vh ${ring}` : ''; c.ring = ring; }
+      // Once judged, the card's ring takes the judgement's color; before that it glows gold as the player's
+      // pose gets close to it (live match from the tablet), in a few steps so it isn't repainted every frame
+      let ring = judged ? COLORS[judged] : null;
+      let shadow = ring ? `inset 0 0 0 .5vh ${ring}, 0 0 2.5vh ${ring}` : '';
+      if (!judged && p.live && p.live.t === c.t) {
+        const glow = Math.round(4 * Math.min(1, Math.max(0, (p.live.s - LIVE_FROM) / (LIVE_FULL - LIVE_FROM)))) / 4;
+        if (glow > 0) shadow = `inset 0 0 0 ${(.2 + .4 * glow).toFixed(2)}vh rgba(255,236,160,${glow}), 0 0 ${(3 * glow).toFixed(2)}vh rgba(255,215,64,${glow})`;
+      }
+      if (c.ring !== shadow) { style.boxShadow = shadow; c.ring = shadow; }
     }
   }
 }
