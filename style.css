@@ -282,7 +282,7 @@ footer.hint { left: 6vh; bottom: 3vh; display: flex; gap: 3vh; font-size: 2.1vh;
 #results .buttons { display: flex; gap: 3vw; margin-top: 2vh; }
 #results .button { font-size: 3.4vh; font-weight: 700; padding: 1.5vh 3.5vw; border-radius: 5vh; border: .4vh solid rgba(255,255,255,.35);
                    transition: transform .15s, background .15s; }
-#results .button.selected { background: linear-gradient(90deg, var(--cyan), var(--pink)); border-color: transparent; transform: scale(1.08);
+#results .button.selected { background: linear-gradient(90deg, var(--cyan), var(--pink)) border-box; border-color: transparent; transform: scale(1.08);
                             box-shadow: 0 0 3vh rgba(255, 64, 129, .5); }
 
 #caption { position: absolute; left: 0; right: 0; bottom: 8vh; text-align: center; font-size: 5vh; font-weight: 700;
