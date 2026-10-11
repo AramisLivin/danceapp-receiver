@@ -101,3 +101,20 @@ function figureSvg(points, feet, aspect, tint, gradientId, outline = '#1a0f2e') 
   return svg;
 }
 
+
+// Moves an already-drawn figure to a new pose without rebuilding it: the same shapes get new coordinates, which
+// is far cheaper for the TV than new elements (the lobby's live figures change twenty times a second). Falls back
+// to a rebuild when the shapes don't line up, e.g. the arms swapped which is drawn on top.
+function updateFigureSvg(svg, points, feet, aspect, tint, gradientId) {
+  const fresh = figureSvg(points, feet, aspect, tint, gradientId);
+  const from = fresh.querySelectorAll('path, ellipse'), to = svg.querySelectorAll('path, ellipse');
+  const same = from.length === to.length && [...from].every((e, i) => e.tagName === to[i].tagName);
+  if (!same) { svg.replaceWith(fresh); return fresh; }
+  from.forEach((e, i) => {
+    for (const name of ['d', 'cx', 'cy', 'rx', 'ry', 'transform']) {
+      const value = e.getAttribute(name);
+      if (value !== null && value !== to[i].getAttribute(name)) to[i].setAttribute(name, value);
+    }
+  });
+  return svg;
+}

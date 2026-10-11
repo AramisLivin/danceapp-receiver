@@ -1,7 +1,7 @@
 // Shared by the receiver's scripts: the Cast context, element lookups and small animation helpers
 const NAMESPACE = 'urn:x-cast:com.dezesar.dance';
 // Matches ?v= in index.html; reported in hello, to tell which version a TV actually loaded
-const VERSION = 12;
+const VERSION = 13;
 const LEAD_MS = 3000, LINGER_MS = 600;
 const COLORS = { PERFECT: '#76FF03', GOOD: '#00E5FF', OK: '#FFD740', MISS: '#FF5252' };
 const LABELS = { PERFECT: 'PERFECT!', GOOD: 'GOOD', OK: 'OK', MISS: 'MISS' };

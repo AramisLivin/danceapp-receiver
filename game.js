@@ -148,13 +148,14 @@ function updateLobby(msg) {
     const statusEl = place.querySelector('.status');
     if (statusEl.textContent !== status) statusEl.textContent = status;
     place.style.setProperty('--p', s.active ? 1 : s.progress);
-    // The player's own figure, live: rebuilt five times a second at most, and not while the lobby comes in
-    const now = performance.now();
-    if (now - game.lobbyShownAt < 700 || now - (p.liveAt || 0) < 200) continue;
-    p.liveAt = now;
+    // The player's own figure, live: moved in place with each pose, but left alone while the lobby comes in
+    if (performance.now() - game.lobbyShownAt < 700) continue;
     const live = place.querySelector('.live');
-    live.innerHTML = '';
-    if (s.pose) live.appendChild(figureSvg(s.pose.p, s.pose.f, msg.aspectRatio, p.tint || TINTS.solo, 'lobby-live-' + p.side));
+    const svg = live.firstChild;
+    if (!s.pose) { if (svg) svg.style.visibility = 'hidden'; continue; }
+    const tint = p.tint || TINTS.solo, id = 'lobby-live-' + p.side;
+    if (svg) { updateFigureSvg(svg, s.pose.p, s.pose.f, msg.aspectRatio, tint, id).style.visibility = ''; }
+    else live.appendChild(figureSvg(s.pose.p, s.pose.f, msg.aspectRatio, tint, id));
   }
 }
 
