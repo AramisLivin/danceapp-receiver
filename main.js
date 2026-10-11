@@ -26,7 +26,23 @@ playerManager.addEventListener(cast.framework.events.EventType.ERROR, e => {
 });
 
 // The remote's D-pad and OK arrive as plain key presses (checked on the SHIELD)
-document.addEventListener('keydown', e => onKey(e.key));
+// Back would close the whole receiver: on the posters it goes back to the songs, anywhere else it takes two
+// presses within a few seconds. Every key besides the D-pad and OK is logged on the tablet, to learn what this
+// remote's Back actually sends (and whether it reaches the page at all).
+const DPAD_KEYS = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter'];
+const EXIT_WINDOW_MS = 3000;
+let exitArmedUntil = 0;
+document.addEventListener('keydown', e => {
+  if (!DPAD_KEYS.includes(e.key)) report({ type: 'key', key: e.key, code: e.code, keyCode: e.keyCode });
+  const back = BACK_KEYS.includes(e.key) || e.keyCode === 4;
+  if (!back) { onKey(e.key); return; }
+  e.preventDefault();
+  const onPosters = menu && menu.screen === 'setup' && !game && idle.style.display !== 'none' && resultsEl.style.display !== 'flex';
+  if (onPosters) { onKey('Escape'); return; }
+  if (performance.now() < exitArmedUntil) { context.stop(); return; }
+  exitArmedUntil = performance.now() + EXIT_WINDOW_MS;
+  replay(toast, 'show');
+});
 
 // Stay up between songs: the tablet decides when the session ends
 const options = new cast.framework.CastReceiverOptions();

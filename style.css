@@ -274,3 +274,9 @@ footer.hint { left: 6vh; bottom: 3vh; display: flex; gap: 3vh; font-size: 2.1vh;
 
 #caption { position: absolute; left: 0; right: 0; bottom: 8vh; text-align: center; font-size: 5vh; font-weight: 700;
            text-shadow: 0 .4vh 1.2vh #000; display: none; }
+
+/* "Press Back again to leave" */
+#toast { position: absolute; left: 50%; bottom: 6vh; transform: translateX(-50%); padding: 1.5vh 3.5vh; border-radius: 99vh; white-space: nowrap;
+         background: rgba(5, 4, 15, .85); border: .3vh solid rgba(255,255,255,.4); font-size: 2.6vh; font-weight: 700; opacity: 0; pointer-events: none; }
+#toast.show { animation: toast 3s ease-out forwards; }
+@keyframes toast { 0% { opacity: 0; } 8% { opacity: 1; } 85% { opacity: 1; } 100% { opacity: 0; } }
